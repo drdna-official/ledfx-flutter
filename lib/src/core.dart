@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/devices/device.dart';
 import 'package:ledfx/src/effects/audio.dart';
 import 'package:ledfx/src/effects/effect.dart';
+import 'package:ledfx/src/effects/wavelength.dart';
 import 'package:ledfx/src/effects/melbank.dart';
 import 'package:ledfx/src/events.dart';
 import 'package:ledfx/src/virtual.dart';
+import 'package:ledfx/src/storage/storage.dart';
 import 'package:n_dimensional_array/domain/models/nd_array.dart';
 
 enum Transmission { base64Compressed, uncompressed }
@@ -31,6 +33,7 @@ class LEDFxConfig {
 
 class LEDFx {
   final LEDFxConfig config;
+  final Storage? storage;
   AudioAnalysisSource? audio;
   late LEDFxEvents events;
   late Devices devices;
@@ -41,7 +44,7 @@ class LEDFx {
   late VoidCallback deviceListener;
   late void Function(LEDFxEvent) visualisationUpdateListener;
 
-  LEDFx({required this.config}) {
+  LEDFx({required this.config, this.storage}) {
     events = LEDFxEvents(this);
     setupVisualisationEvents();
   }
@@ -54,9 +57,7 @@ class LEDFx {
     void handleVisualisationUpdate(LEDFxEvent event) {
       final isDevice = event.eventType == LEDFxEvent.DEVICE_UPDATE;
       final timeNow = DateTime.now();
-      final visID = isDevice
-          ? (event as DeviceUpdateEvent).deviceID
-          : (event as VirtualUpdateEvent).virtualID;
+      final visID = isDevice ? (event as DeviceUpdateEvent).deviceID : (event as VirtualUpdateEvent).virtualID;
       if (timeSinceLast[visID] == null) {
         timeSinceLast[visID] == timeNow.microsecond;
         return;
@@ -68,9 +69,7 @@ class LEDFx {
       //TODO: implement virtuals
       final rows = 1;
 
-      List<Float64List> pixels = isDevice
-          ? (event as DeviceUpdateEvent).pixels
-          : (event as VirtualUpdateEvent).pixels;
+      List<Float64List> pixels = isDevice ? (event as DeviceUpdateEvent).pixels : (event as VirtualUpdateEvent).pixels;
       final pixelsLen = pixels.length;
       List<int> shape = [rows, (pixelsLen / rows).toInt()];
 
@@ -102,26 +101,15 @@ class LEDFx {
             transposedAndCasted[j][i] = uint8Value;
           }
         }
-        pixels = List.generate(
-          transposedAndCasted.length,
-          (i) => Float64List.fromList(transposedAndCasted[i]),
-        );
+        pixels = List.generate(transposedAndCasted.length, (i) => Float64List.fromList(transposedAndCasted[i]));
       }
 
-      events.fireEvent(
-        VisualisationUpdateEvent(visID, pixels, shape, isDevice),
-      );
+      events.fireEvent(VisualisationUpdateEvent(visID, pixels, shape, isDevice));
     }
 
     visualisationUpdateListener = handleVisualisationUpdate;
-    deviceListener = await events.addListener(
-      visualisationUpdateListener,
-      LEDFxEvent.DEVICE_UPDATE,
-    );
-    virtualListener = await events.addListener(
-      visualisationUpdateListener,
-      LEDFxEvent.VIRTUAL_UPDATE,
-    );
+    deviceListener = await events.addListener(visualisationUpdateListener, LEDFxEvent.DEVICE_UPDATE);
+    virtualListener = await events.addListener(visualisationUpdateListener, LEDFxEvent.VIRTUAL_UPDATE);
   }
 
   Future<void> start([bool pauseAll = false]) async {
@@ -131,35 +119,72 @@ class LEDFx {
     effects = Effects(ledfx: this);
     virtuals = Virtuals(ledfx: this);
 
-    virtuals.resetForCore(this);
-    // TODO: create virtuals from config
-    // final device = await devices.addNewDevice(
-    //   DeviceConfig(
-    //     pixelCount: 200,
-    //     rgbwLED: "DNRGB",
-    //     name: "WLED Test",
-    //     type: "wled",
-    //     address: "192.168.0.12",
-    //     rows: 1,
-    //     syncMode: WLEDSyncMode.udp,
-    //   ),
-    // );
-    // if (device != null) {
-    //   await devices.initialiseDevices();
+    if (storage != null) {
+      await storage!.init();
+      final loadedDevices = await storage!.loadDevices();
+      if (loadedDevices != null && loadedDevices.isNotEmpty) {
+        config.devices = loadedDevices;
+      }
+      final loadedVirtuals = await storage!.loadVirtuals();
+      if (loadedVirtuals != null && loadedVirtuals.isNotEmpty) {
+        config.virtuals = loadedVirtuals;
+      }
+    }
 
-    //   final v =
-    //       virtuals.virtuals[config.virtuals.firstWhere(
-    //         (m) => m["deviceID"] == device.id,
-    //       )["id"]];
-    //   if (v != null) {
-    //     v.setEffect(
-    //       RainbowEffect(
-    //         ledfx: this,
-    //         config: EffectConfig(name: "Rainbow Effect"),
-    //       ),
-    //     );
-    //   }
-    // }
+    virtuals.resetForCore(this);
+
+    // Initialize Devices
+    if (config.devices.isNotEmpty) {
+      for (final deviceData in config.devices) {
+        final deviceId = deviceData['id'];
+        final deviceType = deviceData['type'];
+        final configMap = deviceData['config'] as Map<String, dynamic>;
+        final deviceConfig = DeviceConfig.fromJson(configMap);
+
+        final device = devices.create(deviceId, deviceType, deviceConfig, this);
+        if (device is AsyncInitDevice) {
+          await (device as AsyncInitDevice).initialize();
+        }
+        await device.postamble();
+      }
+    }
+
+    // Initialize Virtuals
+    if (config.virtuals.isNotEmpty) {
+      for (final virtualData in config.virtuals) {
+        final virtualId = virtualData['id'];
+        final configMap = virtualData['config'] as Map<String, dynamic>;
+        final virtualConfig = VirtualConfig.fromJson(configMap);
+        final virtual = virtuals.create(virtualId, virtualConfig);
+
+        final segmentsList = virtualData['segments'] as List<dynamic>;
+        final segments = segmentsList.map((s) => SegmentConfig.fromJson(s as Map<String, dynamic>)).toList();
+        virtual.updateSegments(segments);
+        virtual.virtualConfig = virtualData;
+
+        if (storage != null) {
+          final effectData = await storage!.loadActiveEffect(virtualId);
+          if (effectData != null) {
+            final effectType = effectData['type'];
+            final effectConfigMap = effectData['config'] as Map<String, dynamic>;
+            final effectConfig = EffectConfig.fromJson(effectConfigMap);
+
+            Effect? effect;
+            if (effectType == 'WavelengthEffect') {
+              effect = WavelengthEffect(ledfx: this, config: effectConfig);
+            }
+            // Add other effects here as they are implemented
+
+            if (effect != null) {
+              virtual.setEffect(effect);
+              if (virtualData["active"] == false) {
+                virtual.active = false;
+              }
+            }
+          }
+        }
+      }
+    }
     if (pauseAll) virtuals.pauseAll();
   }
 

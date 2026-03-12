@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:ui';
 
 /// Sealed union of all events from the native bridge
 sealed class RecordingEvent {
@@ -123,6 +124,19 @@ class AudioBridge {
   }
 
   // Convenience methods for native calls
+  Future<bool> setupBackgroundExecution(Function callback) async {
+    final callbackHandle = PluginUtilities.getCallbackHandle(callback as Function);
+    if (callbackHandle == null) return false;
+    try {
+      final res = await _method.invokeMethod<bool>('setupBackgroundExecution', {
+        'handle': callbackHandle.toRawHandle(),
+      });
+      return res ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<bool?> getDevices() async {
     if (Platform.isAndroid) {
       _controller.add(

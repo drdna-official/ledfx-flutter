@@ -24,9 +24,7 @@ double maxOfList(List<double> list) {
 
 void copyListContents<T>(List<T> destination, List<T> source) {
   if (destination.length != source.length) {
-    throw ArgumentError(
-      'Source and destination lists must have the same length for in-place copy.',
-    );
+    throw ArgumentError('Source and destination lists must have the same length for in-place copy.');
   }
   for (int i = 0; i < source.length; i++) {
     destination[i] = source[i];
@@ -171,11 +169,7 @@ List<double> interp(List<double> x, List<double> xp, List<double> fp) {
   return result;
 }
 
-List<Float64List> repeatAndTruncatePixels(
-  List<Float64List> effectivePixels,
-  int groupSize,
-  int pixelCount,
-) {
+List<Float64List> repeatAndTruncatePixels(List<Float64List> effectivePixels, int groupSize, int pixelCount) {
   if (effectivePixels.isEmpty || groupSize <= 0) {
     return [];
   }
@@ -217,8 +211,7 @@ class CircularBuffer<T extends Object> {
   // Use a nullable type internally to safely initialize the fixed-size list.
   final List<T?> _buffer;
   int _head = 0; // Index where the next element will be written
-  int _currentLength =
-      0; // The actual number of elements currently in the buffer
+  int _currentLength = 0; // The actual number of elements currently in the buffer
 
   /// Initializes the buffer with a fixed maximum size.
   CircularBuffer(this.maxLength)
@@ -241,7 +234,7 @@ class CircularBuffer<T extends Object> {
   /// Returns the actual number of elements currently in the buffer.
   int get length => _currentLength;
 
-  /// Returns the contents of the buffer as a List<T>, ordered from oldest to newest.
+  /// Returns the contents of the buffer as a List`<T>`, ordered from oldest to newest.
   List<T> toList() {
     if (_currentLength == 0) {
       return <T>[];
@@ -347,12 +340,12 @@ class FixedSizeQueue<T> {
 /// Converts an array of Hues using provided saturation and value properties to an RGB array.
 ///
 /// Args:
-///   hues (List<double>): Array of hue values (0 to 1).
+///   hues (List`<double>`): Array of hue values (0 to 1).
 ///   saturation (double between 0 and 1): The saturation.
 ///   value (double between 0 and 1): The value.
 ///
 /// Returns:
-///   List<Float64List>: An array of RGB values where each RGB value is in the range 0 to 255.
+///   List`<Float64List>`: An array of RGB values where each RGB value is in the range 0 to 255.
 List<Float64List> hsvToRgb(List<double> hues, double saturation, double value) {
   if (hues.isEmpty) {
     return [];
@@ -363,11 +356,8 @@ List<Float64List> hsvToRgb(List<double> hues, double saturation, double value) {
 
   // The six possible values for R, G, B channels based on intermediate calculation
   final double p = value * (1.0 - saturation);
-  final double q =
-      value * (1.0 - saturation * 0.0); // f is 0 for i=0, q=v*(1-s*0)=v*(1-s)
-  final double t =
-      value *
-      (1.0 - saturation * 1.0); // 1-f is 0 for i=0, t=v*(1-s*1)=v*(1-s*f)
+  final double q = value * (1.0 - saturation * 0.0); // f is 0 for i=0, q=v*(1-s*0)=v*(1-s)
+  final double t = value * (1.0 - saturation * 1.0); // 1-f is 0 for i=0, t=v*(1-s*1)=v*(1-s*f)
 
   // Pre-calculate the six intermediate values, which are constant for a given S and V
   // The six possibilities for each channel (value, q, p, p, t, value)
@@ -458,11 +448,7 @@ List<Float64List> hsvToRgb(List<double> hues, double saturation, double value) {
   return rgbArray;
 }
 
-List<Float64List> fillRainbow(
-  List<Float64List> pixels,
-  double initialHue,
-  double deltaHue,
-) {
+List<Float64List> fillRainbow(List<Float64List> pixels, double initialHue, double deltaHue) {
   // The input 'pixels' array is used only to determine the final size (pixelCount).
   final int pixelCount = pixels.length;
 
@@ -587,10 +573,7 @@ List<double> gaussianKernel1d(double sigma, int order, int arrayLen) {
 
   // x = np.arange(-radius, radius + 1)
   final kernelLen = 2 * radius + 1;
-  final List<double> x = List.generate(
-    kernelLen,
-    (i) => (i - radius).toDouble(),
-  );
+  final List<double> x = List.generate(kernelLen, (i) => (i - radius).toDouble());
 
   // phi_x = np.exp(p(x), dtype=np.double)
   final List<double> p_x = p.call(x);

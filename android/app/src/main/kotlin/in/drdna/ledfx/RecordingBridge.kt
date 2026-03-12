@@ -1,44 +1,45 @@
 package `in`.drdna.ledfx
 
 import io.flutter.plugin.common.EventChannel
-import io.flutter.plugin.common.MethodChannel
 
 object RecordingBridge {
-    private var eventSink: EventChannel.EventSink? = null
+    private val eventSinks = mutableMapOf<Boolean, EventChannel.EventSink>()
 
-    fun setup(methodChannel: MethodChannel, eventChannel: EventChannel) {
-        // methodChannel.setMethodCallHandler { call, result ->
-        //     when (call.method) {
-        //         "start" -> result.success(null)
-        //         "stop" -> result.success(null)
-        //         "pause" -> result.success(null)
-        //         "resume" -> result.success(null)
-        //         else -> result.notImplemented()
-        //     }
-        // }
-        
-        eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
-            override fun onListen(args: Any?, events: EventChannel.EventSink?) {
-                eventSink = events
-            }
-            override fun onCancel(args: Any?) {
-                eventSink = null
-            }
-        })
+    fun setup(
+            eventChannel: EventChannel,
+            isBackground: Boolean = false
+    ) {
+
+        eventChannel.setStreamHandler(
+                object : EventChannel.StreamHandler {
+                    override fun onListen(args: Any?, events: EventChannel.EventSink?) {
+                        if (events != null) {
+                            eventSinks[isBackground] = events
+                        }
+                    }
+                    override fun onCancel(args: Any?) {
+                        eventSinks.remove(isBackground)
+                    }
+                }
+        )
+    }
+
+    fun removeUiSink() {
+        eventSinks.remove(false)
     }
 
     // ===== Helpers to send events back to Flutter =====
 
     fun sendAudio(doubles: List<Double>) {
-        eventSink?.success(mapOf("type" to "audio", "data" to doubles))
+        eventSinks.values.forEach { it.success(mapOf("type" to "audio", "data" to doubles)) }
     }
 
     fun sendState(state: String) {
         // state = "started", "paused", "resumed", "stopped"
-        eventSink?.success(mapOf("type" to "state", "value" to state))
+        eventSinks.values.forEach { it.success(mapOf("type" to "state", "value" to state)) }
     }
 
     fun sendError(message: String) {
-        eventSink?.success(mapOf("type" to "error", "message" to message))
+        eventSinks.values.forEach { it.success(mapOf("type" to "error", "message" to message)) }
     }
 }

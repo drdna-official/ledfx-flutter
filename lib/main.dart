@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:ledfx/src/core.dart';
+import 'package:ledfx/background.dart';
+import 'package:ledfx/src/platform/audio_bridge.dart';
+import 'package:ledfx/src/worker.dart';
 import 'package:ledfx/ui/adaptive_layout.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AudioBridge.instance.setupBackgroundExecution(backgroundAudioProcessing);
+
   runApp(const MyApp());
 }
 
@@ -14,11 +19,11 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  late LEDFx ledfx;
+  late LEDFxWorker ledfxWorker;
   @override
   void initState() {
     super.initState();
-    ledfx = LEDFx(config: LEDFxConfig());
+    ledfxWorker = LEDFxWorker();
   }
 
   @override
@@ -30,26 +35,18 @@ class _MyAppState extends State<MyApp> {
       home: Scaffold(
         body: Center(
           child: FutureBuilder(
-            future: ledfx.start(),
+            future: ledfxWorker.init(),
             builder: (BuildContext context, AsyncSnapshot<void> snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
-                  child: Column(
-                    children: [
-                      CircularProgressIndicator(),
-                      Text('Starting LEDFx'),
-                    ],
-                  ),
+                  child: Column(children: [CircularProgressIndicator(), Text('Connecting to Background Isolate')]),
                 );
               } else if (snapshot.hasError) {
                 return Center(
-                  child: Text(
-                    'Error: ${snapshot.error}',
-                    style: const TextStyle(color: Colors.red),
-                  ),
+                  child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
                 );
               } else if (snapshot.connectionState == ConnectionState.done) {
-                return AdaptiveNavigationLayout(ledfx: ledfx);
+                return AdaptiveNavigationLayout(ledfxWorker: ledfxWorker);
 
                 // Center(
                 //   child:

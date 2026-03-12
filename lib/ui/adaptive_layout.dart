@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ledfx/src/core.dart';
+import 'package:ledfx/src/worker.dart';
 import 'package:ledfx/ui/home_body.dart';
 
 // Recommended Material Design Breakpoints
@@ -7,8 +7,8 @@ const double kMediumBreakpoint = 600.0;
 const double kExpandedBreakpoint = 840.0;
 
 class AdaptiveNavigationLayout extends StatelessWidget {
-  final LEDFx ledfx;
-  const AdaptiveNavigationLayout({super.key, required this.ledfx});
+  final LEDFxWorker ledfxWorker;
+  const AdaptiveNavigationLayout({super.key, required this.ledfxWorker});
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +24,7 @@ class AdaptiveNavigationLayout extends StatelessWidget {
               // Hamburger icon is automatically shown because 'drawer' is present
             ),
             drawer: const AppNavigationDrawer(),
-            body: CompactLayout(ledfx: ledfx),
+            body: CompactLayout(ledfxWorker: ledfxWorker),
           );
         } else if (width < kExpandedBreakpoint) {
           // 2. MEDIUM (Tablet) View: Uses Navigation Rail, NO Drawer needed.
@@ -35,7 +35,7 @@ class AdaptiveNavigationLayout extends StatelessWidget {
             ),
             // Explicitly set drawer to null
             drawer: null,
-            body: MediumLayout(ledfx: ledfx),
+            body: MediumLayout(ledfxWorker: ledfxWorker),
           );
         } else {
           // 3. EXPANDED (Desktop) View: Uses Permanent Sidebar, NO Drawer needed.
@@ -46,7 +46,7 @@ class AdaptiveNavigationLayout extends StatelessWidget {
             ),
             // Explicitly set drawer to null
             drawer: null,
-            body: ExpandedLayout(ledfx: ledfx),
+            body: ExpandedLayout(ledfxWorker: ledfxWorker),
           );
         }
       },
@@ -55,12 +55,12 @@ class AdaptiveNavigationLayout extends StatelessWidget {
 }
 
 class CompactLayout extends StatelessWidget {
-  final LEDFx ledfx;
-  const CompactLayout({super.key, required this.ledfx});
+  final LEDFxWorker ledfxWorker;
+  const CompactLayout({super.key, required this.ledfxWorker});
 
   @override
   Widget build(BuildContext context) {
-    return HomeBody(ledfx: ledfx);
+    return HomeBody(ledfxWorker: ledfxWorker);
   }
 }
 
@@ -95,8 +95,8 @@ class AppNavigationDrawer extends StatelessWidget {
 }
 
 class MediumLayout extends StatefulWidget {
-  final LEDFx ledfx;
-  const MediumLayout({super.key, required this.ledfx});
+  final LEDFxWorker ledfxWorker;
+  const MediumLayout({super.key, required this.ledfxWorker});
 
   @override
   State<MediumLayout> createState() => _MediumLayoutState();
@@ -137,15 +137,15 @@ class _MediumLayoutState extends State<MediumLayout> {
 
         // Main Content
         const VerticalDivider(thickness: 1, width: 1),
-        Expanded(child: HomeBody(ledfx: widget.ledfx)),
+        Expanded(child: HomeBody(ledfxWorker: widget.ledfxWorker)),
       ],
     );
   }
 }
 
 class ExpandedLayout extends StatelessWidget {
-  final LEDFx ledfx;
-  const ExpandedLayout({super.key, required this.ledfx});
+  final LEDFxWorker ledfxWorker;
+  const ExpandedLayout({super.key, required this.ledfxWorker});
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +180,7 @@ class ExpandedLayout extends StatelessWidget {
         const VerticalDivider(thickness: 1, width: 1),
 
         // Main Content
-        Expanded(child: HomeBody(ledfx: ledfx)),
+        Expanded(child: HomeBody(ledfxWorker: ledfxWorker)),
       ],
     );
   }

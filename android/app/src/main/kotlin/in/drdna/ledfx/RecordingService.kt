@@ -9,6 +9,8 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import kotlinx.coroutines.*
+import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.EventChannel
 
 class RecordingService : Service(), CoroutineScope by MainScope() {
     private val TAG = "RecordingService"
@@ -56,6 +58,14 @@ class RecordingService : Service(), CoroutineScope by MainScope() {
                         )
                 )
                 isRecording = true
+
+                // Start Background isolate
+                val prefs = getSharedPreferences("RecordingServicePrefs", android.content.Context.MODE_PRIVATE)
+                val handle = prefs.getLong("callbackHandle", 0L)
+                if (handle != 0L) {
+                    EngineHolder.ensureEngineStarted(applicationContext, handle)
+                }
+
                 if (captureType == "loopback") {
                     startLoopbackRecording(rc, data, channels, sampleRate, blockSize)
                 } else {

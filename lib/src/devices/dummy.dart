@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:ledfx/src/devices/device.dart';
-import 'package:ledfx/ui/home_body.dart' show rgb;
 
 class DummyDevice extends Device {
   DummyDevice({required super.id, required super.ledfx, required super.config});
@@ -17,7 +16,6 @@ class DummyDevice extends Device {
         byteData[byteIndex++] = value.toInt().clamp(0, 255);
       }
     }
-    rgb.value = byteData.toList();
     super.flush(data);
   }
 }

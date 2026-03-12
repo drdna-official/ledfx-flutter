@@ -27,25 +27,27 @@ class MainActivity : FlutterFragmentActivity() {
         projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
         projectionLauncher =
-            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-                if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-                    lastResultCode = result.resultCode
-                    lastResultData = result.data
-                    pendingResult?.success(true)
-                } else {
-                    pendingResult?.success(false)
+                registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result
+                    ->
+                    if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+                        lastResultCode = result.resultCode
+                        lastResultData = result.data
+                        pendingResult?.success(true)
+                    } else {
+                        pendingResult?.success(false)
+                    }
+                    pendingResult = null
                 }
-                pendingResult = null
-            }
     }
 
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) { 
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        // Pass method + event channels to RecordingBridge
-        val methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL)
+        // Pass event channel to RecordingBridge
+        val methodChannel =
+                MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL)
         val eventChannel = EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_CHANNEL)
-        RecordingBridge.setup(methodChannel, eventChannel)
+        RecordingBridge.setup(eventChannel, isBackground = false)
 
         // Handle actual service lifecycle calls from Flutter
         methodChannel.setMethodCallHandler { call, result ->
@@ -62,15 +64,16 @@ class MainActivity : FlutterFragmentActivity() {
                     val sampleRate = (args?.get("sampleRate") as? Int) ?: 48000
                     val blockSize = (args?.get("blockSize") as? Int) ?: 1024
                     if (lastResultData != null) {
-                        val svc = Intent(this, RecordingService::class.java).apply {
-                            action = RecordingService.ACTION_START
-                            putExtra(RecordingService.EXTRA_RESULT_CODE, lastResultCode)
-                            putExtra(RecordingService.EXTRA_RESULT_DATA, lastResultData)
-                            putExtra(RecordingService.EXTRA_CAPTURE_TYPE, captureType)
-                            putExtra(RecordingService.EXTRA_CHANNELS, channel)
-                            putExtra(RecordingService.EXTRA_SAMPLE_RATE, sampleRate)
-                            putExtra(RecordingService.EXTRA_BLOCK_SIZE, blockSize)
-                        }
+                        val svc =
+                                Intent(this, RecordingService::class.java).apply {
+                                    action = RecordingService.ACTION_START
+                                    putExtra(RecordingService.EXTRA_RESULT_CODE, lastResultCode)
+                                    putExtra(RecordingService.EXTRA_RESULT_DATA, lastResultData)
+                                    putExtra(RecordingService.EXTRA_CAPTURE_TYPE, captureType)
+                                    putExtra(RecordingService.EXTRA_CHANNELS, channel)
+                                    putExtra(RecordingService.EXTRA_SAMPLE_RATE, sampleRate)
+                                    putExtra(RecordingService.EXTRA_BLOCK_SIZE, blockSize)
+                                }
                         startForegroundService(svc)
                         result.success(true)
                     } else {
@@ -78,14 +81,39 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                 }
                 "stopRecording" -> {
-                    val svc = Intent(this, RecordingService::class.java).apply {
-                        action = RecordingService.ACTION_STOP
-                    }
+                    val svc =
+                            Intent(this, RecordingService::class.java).apply {
+                                action = RecordingService.ACTION_STOP
+                            }
                     startService(svc)
                     result.success(null)
+                }
+                "setupBackgroundExecution" -> {
+                    val args = call.arguments as? Map<*, *>
+                    val handle =
+                            args?.get("handle") as? Long ?: (args?.get("handle") as? Int)?.toLong()
+                    if (handle != null) {
+                        val prefs =
+                                getSharedPreferences(
+                                        "RecordingServicePrefs",
+                                        android.content.Context.MODE_PRIVATE
+                                )
+                        prefs.edit().putLong("callbackHandle", handle).apply()
+
+                        EngineHolder.ensureEngineStarted(applicationContext, handle)
+
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
                 }
                 else -> result.notImplemented()
             }
         }
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        RecordingBridge.removeUiSink()
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 }

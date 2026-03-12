@@ -30,6 +30,36 @@ class EffectConfig {
     this.diag = false,
     this.advanced = false,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'blur': blur,
+      'flip': flip,
+      'mirror': mirror,
+      'brightness': brightness,
+      'useBG': useBG,
+      'backgroudColor': backgroudColor.value,
+      'backgroundBrightness': backgroundBrightness,
+      'diag': diag,
+      'advanced': advanced,
+    };
+  }
+
+  factory EffectConfig.fromJson(Map<String, dynamic> json) {
+    return EffectConfig(
+      name: json['name'],
+      blur: json['blur'] ?? 1.0,
+      flip: json['flip'] ?? false,
+      mirror: json['mirror'] ?? false,
+      brightness: json['brightness'] ?? 1.0,
+      useBG: json['useBG'] ?? false,
+      backgroudColor: json['backgroudColor'] != null ? Color(json['backgroudColor']) : Colors.black,
+      backgroundBrightness: json['backgroundBrightness'] ?? 1.0,
+      diag: json['diag'] ?? false,
+      advanced: json['advanced'] ?? false,
+    );
+  }
 }
 
 abstract interface class EffectMixin {

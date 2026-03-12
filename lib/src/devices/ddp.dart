@@ -2,27 +2,19 @@
 
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/devices/udp.dart';
-import 'package:ledfx/ui/home_body.dart';
 
 class DDPDevice extends UDPDevice {
   static const int VER1 = 0x40; // DDP Version 1
   static const int PUSH = 0x01; // PUSH flag (used for 'last' packet)
   static const int DATATYPE = 0x01; // Data Type (e.g., RGB data)
   static const int SOURCE = 0x01; // Source ID
-  static const int MAX_PIXELS =
-      480; // Example max data length per packet (adjust if needed)
-  static const int MAX_DATALEN =
-      MAX_PIXELS * 3; // Example max data length per packet (adjust if needed)
-  DDPDevice({
-    required super.ipAddr,
-    super.port = 4048,
-    required super.id,
-    required super.ledfx,
-    required super.config,
-  });
+  static const int MAX_PIXELS = 480; // Example max data length per packet (adjust if needed)
+  static const int MAX_DATALEN = MAX_PIXELS * 3; // Example max data length per packet (adjust if needed)
+  DDPDevice({required super.ipAddr, super.port = 4048, required super.id, required super.ledfx, required super.config});
 
   String deviceType = "DDP";
   int frameCount = 0;
@@ -75,7 +67,10 @@ class DDPDevice extends UDPDevice {
       }
     }
 
-    rgb.value = byteData.toList();
+    final uiPort = IsolateNameServer.lookupPortByName("ledfx_ui_port");
+    if (uiPort != null) {
+      uiPort.send({"event": "visualizer_update", "data": byteData});
+    }
 
     // 3. packets, remainder = divmod(len(byteData), DDPDevice.MAX_DATALEN)
     final int dataLength = byteData.length;
@@ -87,8 +82,7 @@ class DDPDevice extends UDPDevice {
     if (remainder != 0) {
       packetCount += 1;
     }
-    final int totalPackets =
-        packetCount; // The total number of packets to send (1-indexed count for DDP header)
+    final int totalPackets = packetCount; // The total number of packets to send (1-indexed count for DDP header)
 
     // 4. for i in range(packets + 1):
     // Since 'packets' here is 0-indexed count, the loop runs from 0 to totalPackets - 1.
@@ -105,15 +99,7 @@ class DDPDevice extends UDPDevice {
       // The 'last' flag is true if the current index 'i' is the last packet index (totalPackets - 1).
       final bool isLast = i == (totalPackets - 1);
 
-      DDPDevice.sendPacket(
-        sock,
-        dest,
-        port,
-        sequence,
-        totalPackets,
-        dataSlice,
-        isLast,
-      );
+      DDPDevice.sendPacket(sock, dest, port, sequence, totalPackets, dataSlice, isLast);
     }
   }
 
