@@ -1,12 +1,14 @@
 package `in`.drdna.ledfx
 
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.media.*
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.util.Log
 import kotlinx.coroutines.*
 import io.flutter.plugin.common.MethodChannel
@@ -18,6 +20,7 @@ class RecordingService : Service(), CoroutineScope by MainScope() {
     private var audioRecord: AudioRecord? = null
     private var mediaProjection: MediaProjection? = null
     private var captureJob: Job? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     companion object {
         var isRecording = false
@@ -48,6 +51,13 @@ class RecordingService : Service(), CoroutineScope by MainScope() {
                         } else {
                             @Suppress("DEPRECATION") intent.getParcelableExtra(EXTRA_RESULT_DATA)
                         }
+
+                // Acquire WakeLock to keep CPU running while screen is off
+                if (wakeLock == null) {
+                    val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+                    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "LEDFx::AudioCaptureWakeLock")
+                    wakeLock?.acquire()
+                }
 
                 // Start foreground service with notification immediately
                 startForeground(
@@ -91,7 +101,7 @@ class RecordingService : Service(), CoroutineScope by MainScope() {
                 )
             }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     private fun startLoopbackRecording(
@@ -318,6 +328,13 @@ class RecordingService : Service(), CoroutineScope by MainScope() {
         audioRecord = null
         mediaProjection?.stop()
         mediaProjection = null
+        
+        wakeLock?.let {
+            if (it.isHeld) {
+                it.release()
+            }
+        }
+        wakeLock = null
     }
 
     override fun onDestroy() {

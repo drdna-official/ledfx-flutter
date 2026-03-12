@@ -57,10 +57,7 @@ class AudioDevice extends Equatable {
       isActive: map['isActive'] ?? false,
       defaultSampleRate: map['sampleRate'] ?? 44100,
       isDefault: map['isDefault'] ?? false,
-      type: AudioDeviceType.values.firstWhere(
-        (e) => e.name == map['type'],
-        orElse: () => AudioDeviceType.input,
-      ),
+      type: AudioDeviceType.values.firstWhere((e) => e.name == map['type'], orElse: () => AudioDeviceType.input),
     );
   }
 
@@ -167,9 +164,7 @@ class AudioBridge {
 
   Future<bool?> start(Map<String, dynamic> args) async {
     if (Platform.isAndroid) {
-      final success = await androidPermissions(
-        args["captureType"] == "loopback",
-      );
+      final success = await androidPermissions(args["captureType"] == "loopback");
       if (success) {
         return await _method.invokeMethod<bool?>('startRecording', args);
       } else {
@@ -194,6 +189,10 @@ class AudioBridge {
     if (requireMediaProjection) {
       final ok = await requestProjection();
       if (!ok) return false;
+    }
+
+    if (await Permission.ignoreBatteryOptimizations.isDenied) {
+      await Permission.ignoreBatteryOptimizations.request();
     }
 
     return true;
