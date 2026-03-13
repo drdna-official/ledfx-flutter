@@ -76,17 +76,10 @@ class AppNavigationDrawer extends StatelessWidget {
             decoration: BoxDecoration(color: Colors.red),
             child: Text(
               'LEDFx',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          ListTile(
-            leading: Icon(Icons.devices_other_rounded),
-            title: Text('Devices'),
-          ),
+          ListTile(leading: Icon(Icons.devices_other_rounded), title: Text('Devices')),
           ListTile(leading: Icon(Icons.send), title: Text('Sent')),
         ],
       ),
@@ -112,8 +105,7 @@ class _MediumLayoutState extends State<MediumLayout> {
         // Navigation Rail
         NavigationRail(
           selectedIndex: _selectedIndex,
-          onDestinationSelected: (index) =>
-              setState(() => _selectedIndex = index),
+          onDestinationSelected: (index) => setState(() => _selectedIndex = index),
           labelType: NavigationRailLabelType.all,
 
           destinations: const [
@@ -159,19 +151,10 @@ class ExpandedLayout extends StatelessWidget {
             children: const [
               Padding(
                 padding: EdgeInsets.all(16.0),
-                child: Text(
-                  'Permanent Navigation',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
+                child: Text('Permanent Navigation', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               ),
-              ListTile(
-                leading: Icon(Icons.dashboard),
-                title: Text('Dashboard'),
-              ),
-              ListTile(
-                leading: Icon(Icons.analytics),
-                title: Text('Analytics'),
-              ),
+              ListTile(leading: Icon(Icons.dashboard), title: Text('Dashboard')),
+              ListTile(leading: Icon(Icons.analytics), title: Text('Analytics')),
               ListTile(leading: Icon(Icons.message), title: Text('Messages')),
             ],
           ),

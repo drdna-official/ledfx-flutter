@@ -11,6 +11,9 @@ import 'package:ledfx/src/storage/storage.dart';
 
 @pragma('vm:entry-point')
 void backgroundAudioProcessing() async {
+  debugPrint("=================================================");
+  debugPrint("BACKGROUND ISOLATE STARTING (Windows/Android)");
+  debugPrint("=================================================");
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
 

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:ledfx/background.dart';
+import 'package:ledfx/background.dart' as bg;
 import 'package:ledfx/src/platform/audio_bridge.dart';
 import 'package:ledfx/src/worker.dart';
 import 'package:ledfx/ui/adaptive_layout.dart';
+
+@pragma('vm:entry-point')
+void backgroundAudioProcessing() => bg.backgroundAudioProcessing();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
