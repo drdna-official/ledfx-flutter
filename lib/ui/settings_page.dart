@@ -28,24 +28,9 @@ class _SettingsPageState extends State<SettingsPage> {
   List<AudioDevice>? devices;
   // Configure three bands with your desired colors.
   final bands = <BandConfig>[
-    BandConfig(
-      name: 'bass',
-      fLow: 20,
-      fHigh: 40,
-      color: const Rgb(255, 0, 0),
-    ), // red-orange
-    BandConfig(
-      name: 'mid',
-      fLow: 100,
-      fHigh: 2000,
-      color: const Rgb(0, 255, 0),
-    ), // cyan
-    BandConfig(
-      name: 'treble',
-      fLow: 100,
-      fHigh: 2000,
-      color: const Rgb(0, 0, 255),
-    ), // violet
+    BandConfig(name: 'bass', fLow: 20, fHigh: 40, color: const Rgb(255, 0, 0)), // red-orange
+    BandConfig(name: 'mid', fLow: 100, fHigh: 2000, color: const Rgb(0, 255, 0)), // cyan
+    BandConfig(name: 'treble', fLow: 100, fHigh: 2000, color: const Rgb(0, 0, 255)), // violet
   ];
 
   final cfg = VisualConfig(
@@ -69,9 +54,9 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     sub = AudioBridge.instance.events.listen((event) async {
       switch (event) {
-        case StateEvent(:final state):
-          switch (state) {
-            case "recordingStarted":
+        case StateEvent(:final value):
+          switch (value) {
+            case "recording_started":
               setState(() {
                 running = true;
                 paused = false;
@@ -87,7 +72,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 paused = false;
               });
               break;
-            case "recordingStopped":
+            case "recording_stopped":
               setState(() {
                 running = false;
                 paused = false;
@@ -102,9 +87,7 @@ class _SettingsPageState extends State<SettingsPage> {
             errorMsg = message;
             // show snackbar outside setState to avoid rebuild issues
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text("Error: $message")));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $message")));
             });
           });
           break;
@@ -112,10 +95,7 @@ class _SettingsPageState extends State<SettingsPage> {
         case AudioEvent(:final data):
           await VisualizerService.instance.stop();
           // Process chunks
-          VisualizerService.instance.processChunk(
-            AudioVisualizerProcessor(bands: bands, cfg: cfg),
-            Uint8List(5),
-          );
+          VisualizerService.instance.processChunk(AudioVisualizerProcessor(bands: bands, cfg: cfg), Uint8List(5));
           break;
         case DevicesInfoEvent(:final audioDevices):
           setState(() {
@@ -173,31 +153,20 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await AudioBridge.instance.start({
-                "deviceId": devices?.first.id,
-                "captureType": "loopback",
-              });
+              await AudioBridge.instance.start({"deviceId": devices?.first.id, "captureType": "loopback"});
             },
             child: Text("Test"),
           ),
-          ElevatedButton(
-            onPressed: running ? _stop : _requestAndStart,
-            child: Text(running ? "Stop" : "Start"),
-          ),
+          ElevatedButton(onPressed: running ? _stop : _requestAndStart, child: Text(running ? "Stop" : "Start")),
           if (running)
             ElevatedButton(
-              onPressed: paused
-                  ? AudioBridge.instance.resume
-                  : AudioBridge.instance.pause,
+              onPressed: paused ? AudioBridge.instance.resume : AudioBridge.instance.pause,
               child: Text(paused ? "Resume" : "Pause"),
             ),
           if (errorMsg != null)
             Padding(
               padding: const EdgeInsets.all(8.0),
-              child: Text(
-                "⚠️ $errorMsg",
-                style: const TextStyle(color: Colors.red),
-              ),
+              child: Text("⚠️ $errorMsg", style: const TextStyle(color: Colors.red)),
             ),
           Expanded(
             child: Center(
@@ -205,10 +174,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 valueListenable: VisualizerService.instance.rgb,
                 builder: (_, rgb, __) {
                   return CustomPaint(
-                    painter: VisualizerPainter(
-                      rgb: rgb,
-                      ledCount: VisualizerService.instance.ledCount,
-                    ),
+                    painter: VisualizerPainter(rgb: rgb, ledCount: VisualizerService.instance.ledCount),
                     size: const Size(double.infinity, 200),
                   );
                 },

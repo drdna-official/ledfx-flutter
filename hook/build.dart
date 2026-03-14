@@ -36,15 +36,10 @@ Future<void> _builder(BuildInput input, BuildOutputBuilder output) async {
   final builder = CMakeBuilder.create(
     name: packageName,
     sourceDir: sourceDir,
-    generator: input.config.code.targetOS == OS.android
-        ? Generator.ninja
-        : Generator.ninja,
+    generator: input.config.code.targetOS == OS.android ? Generator.ninja : Generator.ninja,
     targets: ['install'],
     defines: {
-      'CMAKE_INSTALL_PREFIX': input.outputDirectory
-          .resolve('install')
-          .toFilePath()
-          .replaceAll(r'\', '/'),
+      'CMAKE_INSTALL_PREFIX': input.outputDirectory.resolve('install').toFilePath().replaceAll(r'\', '/'),
       ...defines,
     },
     buildLocal: options['build_local'] as bool? ?? false,
@@ -60,10 +55,10 @@ Future<void> _builder(BuildInput input, BuildOutputBuilder output) async {
     // names: {r'(lib)?aubio\..*': 'aubio_bindings.dart'},
     names: {
       // Match aubio library files with various possible names
-      r'(lib)?aubio(\.dll|\.so|\.dylib)$': 'aubio_bindings.dart',
-      r'aubio\.dll$': 'aubio.dart',
-      r'libaubio\.so$': 'aubio.dart',
-      r'libaubio\.dylib$': 'aubio.dart',
+      r'(lib)?aubio(\.dll|\.so|\.dylib)$': 'ffi/aubio/aubio_bindings.dart',
+      r'aubio\.dll$': 'ffi/aubio/aubio.dart',
+      r'libaubio\.so$': 'ffi/aubio/aubio.dart',
+      r'libaubio\.dylib$': 'ffi/aubio/aubio.dart',
     },
     regExp: true,
   );
@@ -102,8 +97,7 @@ Map<String, String> _getPlatformDefines(OS targetOS, YamlMap config) {
   };
 
   if (platformKey != null) {
-    final platformDefines =
-        (config['defines']?[platformKey] as YamlMap?)?.value ?? {};
+    final platformDefines = (config['defines']?[platformKey] as YamlMap?)?.value ?? {};
     platformDefines.forEach((key, value) {
       defines[key] = value.toString();
     });

@@ -11,8 +11,6 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import kotlinx.coroutines.*
-import io.flutter.plugin.common.MethodChannel
-import io.flutter.plugin.common.EventChannel
 
 class RecordingService : Service(), CoroutineScope by MainScope() {
     private val TAG = "RecordingService"
@@ -55,7 +53,11 @@ class RecordingService : Service(), CoroutineScope by MainScope() {
                 // Acquire WakeLock to keep CPU running while screen is off
                 if (wakeLock == null) {
                     val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-                    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "LEDFx::AudioCaptureWakeLock")
+                    wakeLock =
+                            pm.newWakeLock(
+                                    PowerManager.PARTIAL_WAKE_LOCK,
+                                    "LEDFx::AudioCaptureWakeLock"
+                            )
                     wakeLock?.acquire()
                 }
 
@@ -70,7 +72,11 @@ class RecordingService : Service(), CoroutineScope by MainScope() {
                 isRecording = true
 
                 // Start Background isolate
-                val prefs = getSharedPreferences("RecordingServicePrefs", android.content.Context.MODE_PRIVATE)
+                val prefs =
+                        getSharedPreferences(
+                                "RecordingServicePrefs",
+                                android.content.Context.MODE_PRIVATE
+                        )
                 val handle = prefs.getLong("callbackHandle", 0L)
                 if (handle != 0L) {
                     EngineHolder.ensureEngineStarted(applicationContext, handle)
@@ -81,7 +87,7 @@ class RecordingService : Service(), CoroutineScope by MainScope() {
                 } else {
                     startMicRecording(channels, sampleRate, blockSize)
                 }
-                RecordingBridge.sendState("recordingStarted")
+                RecordingBridge.sendState("recording_started")
             }
             ACTION_STOP -> {
                 stopCapture()
@@ -92,7 +98,7 @@ class RecordingService : Service(), CoroutineScope by MainScope() {
                     @Suppress("DEPRECATION") stopForeground(true)
                 }
                 stopSelf()
-                RecordingBridge.sendState("recordingStopped")
+                RecordingBridge.sendState("recording_stopped")
             }
             ACTION_UPDATE_NOTIFICATION -> {
                 NotificationHelper.updateNotification(
@@ -328,7 +334,7 @@ class RecordingService : Service(), CoroutineScope by MainScope() {
         audioRecord = null
         mediaProjection?.stop()
         mediaProjection = null
-        
+
         wakeLock?.let {
             if (it.isHeld) {
                 it.release()

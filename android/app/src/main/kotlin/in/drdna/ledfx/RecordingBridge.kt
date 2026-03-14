@@ -5,10 +5,7 @@ import io.flutter.plugin.common.EventChannel
 object RecordingBridge {
     private val eventSinks = mutableMapOf<Boolean, EventChannel.EventSink>()
 
-    fun setup(
-            eventChannel: EventChannel,
-            isBackground: Boolean = false
-    ) {
+    fun setup(eventChannel: EventChannel, isBackground: Boolean = false) {
 
         eventChannel.setStreamHandler(
                 object : EventChannel.StreamHandler {
@@ -31,11 +28,12 @@ object RecordingBridge {
     // ===== Helpers to send events back to Flutter =====
 
     fun sendAudio(doubles: List<Double>) {
-        eventSinks.values.forEach { it.success(mapOf("type" to "audio", "data" to doubles)) }
+        // Only to Background Isolate (true => background isolate in the map)
+        eventSinks[true]?.success(mapOf("type" to "audio", "data" to doubles))
     }
 
     fun sendState(state: String) {
-        // state = "started", "paused", "resumed", "stopped"
+        // value = "recording_started", "recording_stopped"
         eventSinks.values.forEach { it.success(mapOf("type" to "state", "value" to state)) }
     }
 

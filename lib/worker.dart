@@ -8,6 +8,9 @@ import 'package:ledfx/src/platform/audio_bridge.dart';
 /// The proxy class that the UI uses to communicate with the background
 /// `LEDFx` isolate.
 class LEDFxWorker {
+  LEDFxWorker._();
+  static final LEDFxWorker instance = LEDFxWorker._();
+
   SendPort? _bgPort;
   ReceivePort? _uiReceivePort;
 
@@ -40,7 +43,7 @@ class LEDFxWorker {
       if (event is DevicesInfoEvent) {
         audioDevices.value = event.audioDevices;
       } else if (event is StateEvent) {
-        isAudioCapturing.value = event.state == "recordingStarted";
+        isAudioCapturing.value = event.value == "recording_started";
       }
     });
     AudioBridge.instance.getDevices();
@@ -50,15 +53,20 @@ class LEDFxWorker {
     _bgPort = IsolateNameServer.lookupPortByName("ledfx_bg_port");
     if (_bgPort != null) {
       // Background is alive! Request initial state.
-      _bgPort!.send({"cmd": "request_state"});
+      requestState();
     }
+  }
+
+  void send(Map<String, dynamic> message) {
+    if (_bgPort == null) _connectToBackground();
+    _bgPort?.send(message);
   }
 
   Future<void> _waitForBackground() async {
     while (_bgPort == null) {
       _bgPort = IsolateNameServer.lookupPortByName("ledfx_bg_port");
       if (_bgPort != null) {
-        _bgPort!.send({"cmd": "request_state"});
+        requestState();
         break;
       }
       await Future.delayed(const Duration(milliseconds: 200));
@@ -91,20 +99,24 @@ class LEDFxWorker {
 
   // ===== Proxy Methods for UI -> Background =====
 
+  void requestState() {
+    send({"cmd": "request_state"});
+  }
+
   void addDevice(DeviceConfig config) {
-    _send({"cmd": "add_device", "payload": config.toJson()});
+    send({"cmd": "add_device", "payload": config.toJson()});
   }
 
   void removeDevice(String deviceId) {
-    _send({"cmd": "remove_device", "deviceId": deviceId});
+    send({"cmd": "remove_device", "deviceId": deviceId});
   }
 
   void setVirtualActive(String virtualId, bool active) {
-    _send({"cmd": "set_virtual_active", "virtualId": virtualId, "active": active});
+    send({"cmd": "set_virtual_active", "virtualId": virtualId, "active": active});
   }
 
   void setEffect(String virtualId, EffectConfig effectConfig) {
-    _send({
+    send({
       "cmd": "set_effect",
       "virtualId": virtualId,
       "effectType": "WavelengthEffect", // Hardcoded for now based on UI
@@ -113,6 +125,7 @@ class LEDFxWorker {
   }
 
   Future<void> startAudioCapture() async {
+    send({"cmd": "start_audio_capture"});
     if (audioDevices.value.isEmpty) {
       await AudioBridge.instance.getDevices();
     }
@@ -131,12 +144,8 @@ class LEDFxWorker {
   }
 
   Future<void> stopAudioCapture() async {
+    send({"cmd": "stop_audio_capture"});
     await AudioBridge.instance.stop();
-  }
-
-  void _send(Map<String, dynamic> message) {
-    if (_bgPort == null) _connectToBackground();
-    _bgPort?.send(message);
   }
 
   void dispose() {

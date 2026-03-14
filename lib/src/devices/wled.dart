@@ -32,8 +32,8 @@ class WLEDDevice extends NetworkedDevice {
   WLED? wled;
 
   @override
-  void flush(List<Float64List> data) {
-    subdevice?.flush(data);
+  void flush(List<Uint8List> pixelData) {
+    subdevice?.flush(pixelData);
   }
 
   @override
@@ -63,13 +63,7 @@ class WLEDDevice extends NetworkedDevice {
         ledfx: ledfx,
         config: config,
       ),
-      WLEDSyncMode.ddp => DDPDevice(
-        id: nanoid(10),
-        ipAddr: ipAddr,
-        port: 4048,
-        ledfx: ledfx,
-        config: config,
-      ),
+      WLEDSyncMode.ddp => DDPDevice(id: nanoid(10), ipAddr: ipAddr, port: 4048, ledfx: ledfx, config: config),
       WLEDSyncMode.e131 => RealtimeUDPDevice(
         id: nanoid(10),
         ipAddr: ipAddr,

@@ -73,7 +73,7 @@ void RecordingBridge::HandleMethodCall(const flutter::MethodCall<flutter::Encoda
         case Method::RequestDeviceList: {
             auto devices = recorder_->EnumerateAudioDevices();
             PostDevices(devices);
-            result->Success();
+            result->Success(flutter::EncodableValue(true));
             break;
         }
         case Method::StartRecording: {
@@ -106,12 +106,12 @@ void RecordingBridge::HandleMethodCall(const flutter::MethodCall<flutter::Encoda
             int blockSize = getInt("blockSize", 0);
 
             recorder_->Start(deviceId, captureType, sampleRate, channels, blockSize);
-            result->Success();
+            result->Success(flutter::EncodableValue(true));
             break;
         }
         case Method::StopRecording: {
             recorder_->Stop();
-            result->Success();
+            result->Success(flutter::EncodableValue(true));
             break;
         }
         case Method::SetupBackgroundExecution: {
@@ -220,7 +220,12 @@ std::optional<LRESULT> RecordingBridge::HandleMessage(UINT message, WPARAM wpara
                 flutter::EncodableValue event(event_map);
 
                 std::lock_guard<std::mutex> lock(event_sinks_mutex_);
-                for (auto& pair : event_sinks_) pair.second->Success(event);
+                for (auto& pair : event_sinks_) {
+                    // Only send audio data to the background isolate
+                    if (background_engine_ && pair.first == background_engine_->messenger()) {
+                        pair.second->Success(event);
+                    }
+                }
             }
             {
                 std::lock_guard<std::mutex> lock(queue_mutex_);

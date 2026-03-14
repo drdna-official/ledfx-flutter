@@ -1,6 +1,7 @@
 // ignore_for_file: constant_identifier_names
 
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:math';
 import 'dart:ui';
 
@@ -21,7 +22,7 @@ class DDPDevice extends UDPDevice {
   bool connectionWarning = false;
 
   @override
-  void flush(List<Float64List> data) {
+  void flush(List<Uint8List> pixelData) {
     frameCount += 1;
     try {
       if (socket == null) {
@@ -30,11 +31,16 @@ class DDPDevice extends UDPDevice {
       if (destination == null || destination!.isEmpty) {
         throw Exception("No valid destination");
       }
+      final builder = BytesBuilder(copy: false);
+      for (final d in pixelData) {
+        builder.add(d);
+      }
+
       DDPDevice.sendOut(
         sock: socket!,
         dest: InternetAddress(destination!),
         port: port,
-        data: data,
+        byteData: builder.takeBytes(),
         frameCount: frameCount,
       );
     } catch (e) {
@@ -52,20 +58,10 @@ class DDPDevice extends UDPDevice {
     required RawDatagramSocket sock,
     required InternetAddress dest,
     required int port,
-    required List<Float64List> data,
+    required Uint8List byteData,
     required int frameCount,
   }) {
     final int sequence = frameCount % 15 + 1;
-
-    final int totalBytes = data.length * 3;
-    final Uint8List byteData = Uint8List(totalBytes);
-    int byteIndex = 0;
-
-    for (final Float64List pixelRow in data) {
-      for (final double value in pixelRow) {
-        byteData[byteIndex++] = value.toInt().clamp(0, 255);
-      }
-    }
 
     final uiPort = IsolateNameServer.lookupPortByName("ledfx_ui_port");
     if (uiPort != null) {

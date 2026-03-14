@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ledfx/src/devices/device.dart';
 import 'package:ledfx/src/effects/effect.dart';
-import 'package:ledfx/src/worker.dart';
+import 'package:ledfx/worker.dart';
 import 'package:ledfx/visualizer/visualizer_painter.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -12,14 +12,15 @@ Future<bool> requestNotificationPermission() async {
 }
 
 class HomeBody extends StatefulWidget {
-  final LEDFxWorker ledfxWorker;
-  const HomeBody({super.key, required this.ledfxWorker});
+  const HomeBody({super.key});
 
   @override
   State<HomeBody> createState() => _HomeBodyState();
 }
 
 class _HomeBodyState extends State<HomeBody> {
+  final LEDFxWorker ledfxWorker = LEDFxWorker.instance;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -29,24 +30,23 @@ class _HomeBodyState extends State<HomeBody> {
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              ElevatedButton.icon(onPressed: _showFormDialog, label: Text("Add Device"), icon: Icon(Icons.add)),
+              ElevatedButton.icon(onPressed: _addDeviceForm, label: Text("Add Device"), icon: Icon(Icons.add)),
               ElevatedButton.icon(
                 onPressed: () {
-                  setState(() {});
+                  ledfxWorker.requestState();
                 },
                 label: Text("Refresh"),
               ),
             ],
           ),
           ValueListenableBuilder(
-            valueListenable: widget.ledfxWorker.audioDevices,
+            valueListenable: ledfxWorker.audioDevices,
             builder: (context, devices, child) {
               return Row(
                 children: [
                   Text("Current Selected Device"),
-                  if (devices.isNotEmpty) Text(devices[widget.ledfxWorker.activeAudioDeviceIndex.value].name),
+                  if (devices.isNotEmpty) Text(devices[ledfxWorker.activeAudioDeviceIndex.value].name),
                 ],
               );
             },
@@ -56,13 +56,13 @@ class _HomeBodyState extends State<HomeBody> {
             children: [
               ElevatedButton.icon(
                 onPressed: () {
-                  widget.ledfxWorker.startAudioCapture();
+                  ledfxWorker.startAudioCapture();
                 },
                 label: Text("Start Audio Capture"),
               ),
               ElevatedButton.icon(
                 onPressed: () {
-                  widget.ledfxWorker.stopAudioCapture();
+                  ledfxWorker.stopAudioCapture();
                 },
                 label: Text("Stop Audio Capture"),
               ),
@@ -71,7 +71,7 @@ class _HomeBodyState extends State<HomeBody> {
           SizedBox(
             height: 50,
             child: ValueListenableBuilder<List<int>>(
-              valueListenable: widget.ledfxWorker.rgb,
+              valueListenable: ledfxWorker.rgb,
               builder: (BuildContext context, List<int> value, Widget? child) {
                 return CustomPaint(
                   painter: VisualizerPainter(rgb: value, ledCount: 300),
@@ -82,7 +82,7 @@ class _HomeBodyState extends State<HomeBody> {
           ),
 
           ValueListenableBuilder<List<Map<String, dynamic>>>(
-            valueListenable: widget.ledfxWorker.virtuals,
+            valueListenable: ledfxWorker.virtuals,
             builder: (context, virtuals, child) {
               return ListView(
                 shrinkWrap: true,
@@ -110,7 +110,7 @@ class _HomeBodyState extends State<HomeBody> {
                                 Switch(
                                   value: v["active"] ?? false,
                                   onChanged: (bool newVal) {
-                                    widget.ledfxWorker.setVirtualActive(v["id"], newVal);
+                                    ledfxWorker.setVirtualActive(v["id"], newVal);
                                   },
                                 ),
                               ],
@@ -125,7 +125,7 @@ class _HomeBodyState extends State<HomeBody> {
                             children: [
                               ElevatedButton.icon(
                                 onPressed: () {
-                                  widget.ledfxWorker.setEffect(
+                                  ledfxWorker.setEffect(
                                     v["id"],
                                     EffectConfig(name: "wavelength", mirror: true, blur: 3.0),
                                   );
@@ -151,7 +151,7 @@ class _HomeBodyState extends State<HomeBody> {
                                           ),
                                           TextButton(
                                             onPressed: () {
-                                              widget.ledfxWorker.removeDevice(configMap["deviceID"]);
+                                              ledfxWorker.removeDevice(configMap["deviceID"]);
                                               Navigator.pop(context);
                                             },
                                             child: Text("Remove"),
@@ -184,10 +184,9 @@ class _HomeBodyState extends State<HomeBody> {
 
   // The maximum desired width for the dialogue card on large screens
   static const double _cardMaxWidth = 500.0;
-  TextEditingController _address = TextEditingController(text: "192.168.0.170");
-  TextEditingController _type = TextEditingController(text: "wled");
-  // Function to show the custom dialogue
-  void _showFormDialog() {
+  final TextEditingController _address = TextEditingController(text: "192.168.0.170");
+  final TextEditingController _type = TextEditingController(text: "wled");
+  void _addDeviceForm() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -215,16 +214,17 @@ class _HomeBodyState extends State<HomeBody> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Device Type Field
-                      TextFormField(
-                        controller: _type,
+                      // Device Type
+                      DropdownButtonFormField<String>(
+                        initialValue: _type.text,
                         decoration: const InputDecoration(labelText: 'DeviceType', border: OutlineInputBorder()),
-                        // validator: (value) {
-                        //   if (value == "wled" || value == "dummy") {
-                        //     return null;
-                        //   }
-                        //   return 'Supported - wled / dummy';
-                        // },
+                        items: const [
+                          DropdownMenuItem(value: "wled", child: Text("WLED")),
+                          DropdownMenuItem(value: "dummy", child: Text("Dummy")),
+                        ],
+                        onChanged: (value) {
+                          _type.text = value!;
+                        },
                       ),
                       const SizedBox(height: 15),
                       // Address Field
@@ -261,7 +261,7 @@ class _HomeBodyState extends State<HomeBody> {
                                       address: _address.text,
                                     );
 
-                              widget.ledfxWorker.addDevice(config);
+                              ledfxWorker.addDevice(config);
                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Added New Device")));
                               Navigator.of(context).pop();
                             } catch (e) {

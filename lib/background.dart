@@ -118,11 +118,12 @@ void backgroundAudioProcessing() async {
               _sendStateToUI(ledfx);
             }
             break;
+          case "get_audio_devices":
+            AudioBridge.instance.getDevices();
+            break;
           case "start_audio_capture":
-            ledfx.audio?.startAudioCapture();
             break;
           case "stop_audio_capture":
-            ledfx.audio?.stopAudioCapture();
             break;
         }
       }
@@ -131,7 +132,7 @@ void backgroundAudioProcessing() async {
     AudioBridge.instance.events.listen((event) {
       if (event is StateEvent) {
         final uiPort = IsolateNameServer.lookupPortByName("ledfx_ui_port");
-        uiPort?.send({"event": "audio_state", "isCapturing": event.state == "started"});
+        uiPort?.send({"event": "audio_state", "isCapturing": event.value == "recording_started"});
       }
     });
   } catch (e, stacktrace) {
@@ -153,7 +154,10 @@ void _sendStateToUI(LEDFx ledfx) {
             "config": v.config.toJson(),
             "active": v.active,
             "activeEffect": v.activeEffect != null
-                ? {"type": v.activeEffect.runtimeType.toString(), "name": v.activeEffect!.name}
+                ? {
+                    "type": v.activeEffect is WavelengthEffect ? "WavelengthEffect" : "Unknown",
+                    "name": v.activeEffect!.name,
+                  }
                 : null,
             "deviceID": v.deviceID,
             "segments": v.segments.map((s) => s.toJson()).toList(),

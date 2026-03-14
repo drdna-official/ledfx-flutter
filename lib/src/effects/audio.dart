@@ -3,16 +3,15 @@ import 'dart:ffi';
 import 'dart:math' show max, min;
 
 import 'package:flutter/foundation.dart';
-import 'package:ledfx/aubio.dart';
-import 'package:ledfx/aubio_bindings.dart';
+import 'package:ledfx/ffi/aubio/aubio.dart';
+import 'package:ledfx/ffi/aubio/aubio_bindings.dart';
 import 'package:ledfx/src/platform/audio_bridge.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/src/effects/const.dart';
 import 'package:ledfx/src/effects/dsp.dart';
 import 'package:ledfx/src/effects/math.dart';
 import 'package:ledfx/src/effects/melbank.dart';
-import 'package:ledfx/src/effects/utils.dart'
-    show CircularBuffer, FixedSizeQueue;
+import 'package:ledfx/src/effects/utils.dart' show CircularBuffer, FixedSizeQueue;
 
 abstract class AudioInputSource {
   final LEDFx ledfx;
@@ -32,7 +31,7 @@ abstract class AudioInputSource {
     this.delay = Duration.zero,
   });
 
-  List<AudioDevice>? audioDevices;
+  // List<AudioDevice>? audioDevices;
   int activeAudioDeviceIndex = 0;
 
   bool _audioStreamActive = false;
@@ -52,11 +51,7 @@ abstract class AudioInputSource {
   }
 
   double _volume = -90.0;
-  final ExpFilter _volumeFilter = ExpFilter(
-    val: -90.0,
-    alphaDecay: 0.99,
-    alphaRise: 0.99,
-  );
+  final ExpFilter _volumeFilter = ExpFilter(val: -90.0, alphaDecay: 0.99, alphaRise: 0.99);
   double volume({bool filtered = true}) {
     return filtered ? _volumeFilter.value : _volume;
   }
@@ -68,22 +63,19 @@ abstract class AudioInputSource {
 
   final List<double> _audioEventBuffer = [];
   void activate() {
+    if (_streamSub != null) return;
     // setup audio bridge event stream
     _audio ??= AudioBridge.instance;
     _streamSub = _audio!.events.listen((event) {
       switch (event) {
-        case StateEvent(:final state):
-          switch (state) {
-            case "recordingStarted":
+        case StateEvent(:final value):
+          switch (value) {
+            case "recording_started":
+              _audioStreamActive = true;
               debugPrint("recording started");
               break;
-            case "recordingPaused":
-              debugPrint("recording paused");
-              break;
-            case "recordingResumed":
-              debugPrint("recording resumed");
-              break;
-            case "recordingStopped":
+            case "recording_stopped":
+              _audioStreamActive = false;
               debugPrint("recording stopped");
               break;
           }
@@ -101,28 +93,26 @@ abstract class AudioInputSource {
           // }
           audioSampleCallback(data);
           break;
-        case DevicesInfoEvent(:final audioDevices):
-          this.audioDevices = audioDevices;
-          notifySubscribers();
+        case DevicesInfoEvent():
+          // case DevicesInfoEvent(:final audioDevices):
+          //   this.audioDevices = audioDevices;
+          //   notifySubscribers();
           break;
       }
     });
     // get devices list
-    _audio!.getDevices();
+    // _audio!.getDevices();
 
     // Setup a pre-emphasis filter to balance the input volume of lows to highs
     preEmphasis = Aubio.digitalFilter(3);
-    final selectedCoeff =
-        ledfx.config.melbankConfig?.coeffType ?? CoeffType.mattmel;
+    final selectedCoeff = ledfx.config.melbankConfig?.coeffType ?? CoeffType.mattmel;
     switch (selectedCoeff) {
       case CoeffType.mattmel:
         preEmphasis.setBiquad(0.8268, -1.6536, 0.8268, -1.6536, 0.6536);
       // default:
       //   preEmphasis.setBiquad(0, 0.85870, -1.71740, 0.85870, -1.71605, 0.71874);
     }
-    _rawAudioSample = Float64List.fromList(
-      List.filled(MIC_RATE ~/ sampleRate, 0),
-    );
+    _rawAudioSample = Float64List.fromList(List.filled(MIC_RATE ~/ sampleRate, 0));
 
     phaseVocoder = Aubio.createPhaseVocoder(FFT_SIZE, MIC_RATE ~/ sampleRate);
 
@@ -150,50 +140,41 @@ abstract class AudioInputSource {
     _freqDomain.delete();
   }
 
-  void queryDevices() {
-    if (_audio == null) {
-      return;
-    }
-    _audio!.getDevices();
-  }
+  // void queryDevices() {
+  //   if (_audio == null) {
+  //     return;
+  //   }
+  //   _audio!.getDevices();
+  // }
 
-  void setActiveDevice(int index) {
-    activeAudioDeviceIndex = index;
-  }
+  // void setActiveDevice(int index) {
+  //   activeAudioDeviceIndex = index;
+  // }
 
   Future<void> startAudioCapture([int? deviceIndex]) async {
     if (_audio == null) return;
     if (_audioStreamActive) return;
-    if (audioDevices == null) queryDevices();
-    if (deviceIndex != null) setActiveDevice(deviceIndex);
+    // if (audioDevices == null) queryDevices();
+    // if (deviceIndex != null) setActiveDevice(deviceIndex);
 
-    if (audioDevices!.length > activeAudioDeviceIndex) {
-      print(
-        "starting audio capture with device -- ${audioDevices![activeAudioDeviceIndex].name}",
-      );
-      final success = await _audio!.start({
-        "deviceId": audioDevices![activeAudioDeviceIndex].id,
-        "captureType":
-            audioDevices![activeAudioDeviceIndex].type == AudioDeviceType.input
-            ? "capture"
-            : "loopback",
-        "sampleRate": audioDevices![activeAudioDeviceIndex].defaultSampleRate,
-        "channels": 1,
-        "blockSize":
-            audioDevices![activeAudioDeviceIndex].defaultSampleRate ~/
-            sampleRate,
-      });
-      if (success ?? false) _audioStreamActive = true;
-      return;
-    }
+    // if (audioDevices!.length > activeAudioDeviceIndex) {
+    //   print("starting audio capture with device -- ${audioDevices![activeAudioDeviceIndex].name}");
+    //   await _audio!.start({
+    //     "deviceId": audioDevices![activeAudioDeviceIndex].id,
+    //     "captureType": audioDevices![activeAudioDeviceIndex].type == AudioDeviceType.input ? "capture" : "loopback",
+    //     "sampleRate": audioDevices![activeAudioDeviceIndex].defaultSampleRate,
+    //     "channels": 1,
+    //     "blockSize": audioDevices![activeAudioDeviceIndex].defaultSampleRate ~/ sampleRate,
+    //   });
+    //   return;
+    // }
   }
 
-  void stopAudioCapture() {
-    if (_audioStreamActive && _audio != null) {
-      _audio!.stop();
-      _audioStreamActive = false;
-    }
-  }
+  // Future<void> stopAudioCapture() async {
+  //   if (_audioStreamActive && _audio != null) {
+  //     await _audio!.stop();
+  //   }
+  // }
 
   /// Convert PCM16 bytes → normalized float samples
   Float64List pcm16ToFloat32(Uint8List bytes) {
@@ -227,11 +208,7 @@ abstract class AudioInputSource {
     Float64List processed = Float64List(outLen);
     if (inRaw.length != outLen) {
       if (resampler == null || resampler == nullptr) {
-        resampler = Aubio.createResampler(
-          ResamplerType.SRC_SINC_FASTEST,
-          inRaw.length,
-          outLen,
-        );
+        resampler = Aubio.createResampler(ResamplerType.SRC_SINC_FASTEST, inRaw.length, outLen);
       }
       processed = resampler!.process(inRaw, outLen);
     } else {
@@ -320,8 +297,7 @@ abstract class AudioInputSource {
     if ((_volumeFilter.value as double) > minVolume) {
       _processedAudioSample = _rawAudioSample;
       // pre-emphasis
-      _processedAudioSample =
-          preEmphasis.processAudioFrame(_rawAudioSample) ?? _rawAudioSample;
+      _processedAudioSample = preEmphasis.processAudioFrame(_rawAudioSample) ?? _rawAudioSample;
       //Pass into the phase vocoder to get a windowed FFT
       _freqDomain = phaseVocoder.analyse(_processedAudioSample);
     } else {
@@ -414,23 +390,13 @@ class AudioAnalysisSource extends AudioInputSource {
     freqMelIndexs = [];
     for (final freq in freqMelIndexs) {
       assert(melbanks.melbankConfig.maxFreqs[2] >= freq);
-      final index = melbanks.melbankProcessors[2].melbankFreqs.indexWhere(
-        (f) => f > freq,
-      );
-      freqMelIndexs.add(
-        (index == -1)
-            ? melbanks.melbankProcessors[2].melbankFreqs.length
-            : index,
-      );
+      final index = melbanks.melbankProcessors[2].melbankFreqs.indexWhere((f) => f > freq);
+      freqMelIndexs.add((index == -1) ? melbanks.melbankProcessors[2].melbankFreqs.length : index);
     }
 
     //volume based beat detection
-    final tmpIndex = melbanks.melbankProcessors[0].melbankFreqs.indexWhere(
-      (f) => f > freqMaxMels[0],
-    );
-    beatMaxMelIndex = (tmpIndex == -1)
-        ? melbanks.melbankProcessors[0].melbankFreqs.last
-        : tmpIndex - 1;
+    final tmpIndex = melbanks.melbankProcessors[0].melbankFreqs.indexWhere((f) => f > freqMaxMels[0]);
+    beatMaxMelIndex = (tmpIndex == -1) ? melbanks.melbankProcessors[0].melbankFreqs.last : tmpIndex - 1;
     beatPowerHistoryLen = beatPowerHistoryLen = (sampleRate * 0.2).toInt();
     beatPowerHistory = CircularBuffer(beatPowerHistoryLen);
   }

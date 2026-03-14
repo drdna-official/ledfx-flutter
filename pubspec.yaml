@@ -1,5 +1,5 @@
 name: ledfx
-description: "Record Audio Stream from your (Android) device and control WLED device"
+description: "Record Audio Stream from your (Android/Windows) device and control WLED device"
 
 publish_to: "none"
 

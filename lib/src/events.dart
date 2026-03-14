@@ -112,9 +112,8 @@ class DevicesUpdatedEvent extends LEDFxEvent {
 
 class DeviceUpdateEvent extends LEDFxEvent {
   final String deviceID;
-  final List<Float64List> pixels;
-  const DeviceUpdateEvent(this.deviceID, this.pixels)
-    : super(LEDFxEvent.DEVICE_UPDATE);
+  final List<Uint8List> pixels;
+  const DeviceUpdateEvent(this.deviceID, this.pixels) : super(LEDFxEvent.DEVICE_UPDATE);
 
   @override
   Map<String, dynamic> toMap() {
@@ -125,8 +124,7 @@ class DeviceUpdateEvent extends LEDFxEvent {
 class VirtualUpdateEvent extends LEDFxEvent {
   final String virtualID;
   final List<Float64List> pixels;
-  const VirtualUpdateEvent(this.virtualID, this.pixels)
-    : super(LEDFxEvent.VIRTUAL_UPDATE);
+  const VirtualUpdateEvent(this.virtualID, this.pixels) : super(LEDFxEvent.VIRTUAL_UPDATE);
   @override
   Map<String, dynamic> toMap() {
     return {"eventType": eventType, "virtualID": virtualID, "pixels": pixels};
@@ -139,17 +137,10 @@ class VisualisationUpdateEvent extends LEDFxEvent {
   final List<Float64List> pixels;
   final List<int> shape;
 
-  VisualisationUpdateEvent(this.visID, this.pixels, this.shape, this.isDevice)
-    : super(LEDFxEvent.VISUALISATION_UPDATE);
+  VisualisationUpdateEvent(this.visID, this.pixels, this.shape, this.isDevice) : super(LEDFxEvent.VISUALISATION_UPDATE);
 
   @override
   Map<String, dynamic> toMap() {
-    return {
-      "eventType": eventType,
-      "visID": visID,
-      "pixels": pixels,
-      "shape": shape,
-      "isDevice": isDevice,
-    };
+    return {"eventType": eventType, "visID": visID, "pixels": pixels, "shape": shape, "isDevice": isDevice};
   }
 }

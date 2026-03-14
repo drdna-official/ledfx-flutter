@@ -1,6 +1,6 @@
 name: AubioBindings
 description: generates aubio bindings
-output: "lib/aubio_bindings.dart"
+output: "lib/ffi/aubio/aubio_bindings.dart"
 headers:
   entry-points:
     - "src/aubio/src/aubio.h"

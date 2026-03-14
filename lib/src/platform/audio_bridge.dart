@@ -70,9 +70,9 @@ enum AudioDeviceType { input, output }
 enum AudioCaptureType { microphone, systemAudio }
 
 class StateEvent extends RecordingEvent {
-  /// e.g. "started", "paused", "resumed", "stopped"
-  final String state;
-  const StateEvent(this.state);
+  // value = "recording_started", "recording_stopped"
+  final String value;
+  const StateEvent(this.value);
 }
 
 class ErrorEvent extends RecordingEvent {
@@ -158,26 +158,54 @@ class AudioBridge {
       );
       return true;
     } else {
-      return await _method.invokeMethod<bool?>('requestDeviceList');
+      try {
+        return await _method.invokeMethod<bool?>('requestDeviceList');
+      } catch (e) {
+        return false;
+      }
     }
   }
 
   Future<bool?> start(Map<String, dynamic> args) async {
-    if (Platform.isAndroid) {
-      final success = await androidPermissions(args["captureType"] == "loopback");
-      if (success) {
-        return await _method.invokeMethod<bool?>('startRecording', args);
+    try {
+      if (Platform.isAndroid) {
+        final success = await androidPermissions(args["captureType"] == "loopback");
+        if (success) {
+          return await _method.invokeMethod<bool?>('startRecording', args);
+        } else {
+          return false;
+        }
       } else {
-        return false;
+        return await _method.invokeMethod<bool?>('startRecording', args);
       }
-    } else {
-      return await _method.invokeMethod<bool?>('startRecording', args);
+    } catch (e) {
+      return false;
     }
   }
 
-  Future<bool?> stop() async => await _method.invokeMethod('stopRecording');
-  Future<bool?> pause() async => await _method.invokeMethod('pauseRecording');
-  Future<bool?> resume() async => await _method.invokeMethod('resumeRecording');
+  Future<bool?> stop() async {
+    try {
+      return await _method.invokeMethod<bool?>('stopRecording');
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool?> pause() async {
+    try {
+      return await _method.invokeMethod<bool?>('pauseRecording');
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool?> resume() async {
+    try {
+      return await _method.invokeMethod<bool?>('resumeRecording');
+    } catch (e) {
+      return false;
+    }
+  }
 
   Future<bool> androidPermissions(bool requireMediaProjection) async {
     final p = await Permission.microphone.request();

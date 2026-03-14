@@ -12,6 +12,13 @@
 .swiftpm/
 migrate_working_dir/
 
+# Gradle
+.gradle/
+
+# Kotlin
+.kotlin/
+
+
 # IntelliJ related
 *.iml
 *.ipr

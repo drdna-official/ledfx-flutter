@@ -2,8 +2,8 @@ import 'dart:ffi';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:ledfx/aubio.dart';
-import 'package:ledfx/aubio_bindings.dart';
+import 'package:ledfx/ffi/aubio/aubio.dart';
+import 'package:ledfx/ffi/aubio/aubio_bindings.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/src/effects/audio.dart';
 import 'package:ledfx/src/effects/const.dart';
@@ -12,11 +12,7 @@ import 'package:ledfx/src/effects/mel_utils.dart';
 import 'package:ledfx/src/effects/utils.dart';
 
 class MelbankConfig {
-  MelbankConfig({
-    required this.name,
-    this.maxFreq = MAX_FREQ,
-    this.minFreq = MIN_FREQ,
-  });
+  MelbankConfig({required this.name, this.maxFreq = MAX_FREQ, this.minFreq = MIN_FREQ});
 
   final String name;
   final int maxFreq;
@@ -80,10 +76,7 @@ class Melbanks {
           ..maxFreqs = maxFreqs;
         final melbank = Melbank(audio: audio, config: melbankConfig);
         melbankProcessors.add(melbank);
-        melbankCollection.add({
-          "id": generateId(melbank.config.name),
-          "melbank_config": melbankConfig,
-        });
+        melbankCollection.add({"id": generateId(melbank.config.name), "melbank_config": melbankConfig});
       }
     } else {
       for (var melbank in melbankCollection) {
@@ -100,14 +93,8 @@ class Melbanks {
     melCount = maxFreqs.length;
     melLength = samples;
 
-    melbanks = List<Float64List>.generate(
-      melCount,
-      (_) => Float64List(melLength),
-    );
-    melbanksFiltered = List<Float64List>.generate(
-      melCount,
-      (_) => Float64List(melLength),
-    );
+    melbanks = List<Float64List>.generate(melCount, (_) => Float64List(melLength));
+    melbanksFiltered = List<Float64List>.generate(melCount, (_) => Float64List(melLength));
 
     minVolume = audio.minVolume;
   }
@@ -159,24 +146,14 @@ class Melbank {
           hzTOmatt(config.maxFreq.toDouble()),
           config.samples + 2,
         );
-        melbankFreqsFloat = Float64List.fromList(
-          melbankMatt.map((mel) => mattTOhz(mel)).toList(),
-        );
+        melbankFreqsFloat = Float64List.fromList(melbankMatt.map((mel) => mattTOhz(mel)).toList());
 
         filterBank = Aubio.createFilterBank(config.samples, FFT_SIZE);
-        filterBank.setTriangleBandsF32(
-          freqs: melbankFreqsFloat,
-          sampleRate: MIC_RATE,
-        );
-        melbankFreqsFloat = melbankFreqsFloat.sublist(
-          1,
-          melbankFreqsFloat.length - 1,
-        );
+        filterBank.setTriangleBandsF32(freqs: melbankFreqsFloat, sampleRate: MIC_RATE);
+        melbankFreqsFloat = melbankFreqsFloat.sublist(1, melbankFreqsFloat.length - 1);
     }
 
-    melbankFreqs = Int32List.fromList(
-      melbankFreqsFloat.map((i) => i.toInt()).toList(),
-    );
+    melbankFreqs = Int32List.fromList(melbankFreqsFloat.map((i) => i.toInt()).toList());
 
     //Find the indexes for each of the frequency ranges
     lowsIndex = midsIndex = highsIndex = 1;
@@ -199,11 +176,7 @@ class Melbank {
     diffFilter = ExpFilter(alphaDecay: 0.15, alphaRise: 0.99);
   }
   // computes the melbank curve for frequency domain .
-  void execute(
-    Pointer<cvec_t> freqDomain,
-    Float64List melbank,
-    Float64List filteredMelbank,
-  ) {
+  void execute(Pointer<cvec_t> freqDomain, Float64List melbank, Float64List filteredMelbank) {
     // copyListContents(melbank, filterBank.process(freqDomain, melbank.length));
     melbank.setAll(0, filterBank.process(freqDomain, melbank.length));
 

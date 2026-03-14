@@ -91,32 +91,15 @@ class Devices extends Iterable<MapEntry<String, Device>> {
     }
   }
 
-  Device create(
-    String id,
-    String deviceType,
-    DeviceConfig config,
-    LEDFx ledfx,
-  ) {
+  Device create(String id, String deviceType, DeviceConfig config, LEDFx ledfx) {
     Device d;
     switch (deviceType) {
       case "wled":
-        d = WLEDDevice(
-          ipAddr: config.address!,
-          syncMode: config.syncMode!,
-          id: id,
-          ledfx: ledfx,
-          config: config,
-        );
+        d = WLEDDevice(ipAddr: config.address!, syncMode: config.syncMode!, id: id, ledfx: ledfx, config: config);
       case "dummy":
         d = DummyDevice(id: id, ledfx: ledfx, config: config);
       default:
-        d = WLEDDevice(
-          ipAddr: config.address!,
-          syncMode: config.syncMode!,
-          id: id,
-          ledfx: ledfx,
-          config: config,
-        );
+        d = WLEDDevice(ipAddr: config.address!, syncMode: config.syncMode!, id: id, ledfx: ledfx, config: config);
     }
 
     devices[id] = d;
@@ -130,22 +113,15 @@ class Devices extends Iterable<MapEntry<String, Device>> {
     if (config.address != null && config.type != "dummy") {
       final ipAddr = cleanIPaddress(config.address!);
       try {
-        resolvedDestination = await resolveDestination(
-          ipAddr,
-          checkConnection: true,
-          port: 80,
-        );
+        resolvedDestination = await resolveDestination(ipAddr, checkConnection: true, port: 80);
         if (resolvedDestination == "") throw Exception("could not be resolved");
       } catch (e) {
-        throw Exception(
-          "device could not be resolved -- $ipAddr, skipping device",
-        );
+        throw Exception("device could not be resolved -- $ipAddr, skipping device");
       }
 
       if (resolvedDestination.isNotEmpty) {
         ledfx.devices.devices.forEach((k, v) {
-          if ((v is NetworkedDevice) &&
-              (v.ipAddr == ipAddr || v.ipAddr == resolvedDestination)) {
+          if ((v is NetworkedDevice) && (v.ipAddr == ipAddr || v.ipAddr == resolvedDestination)) {
             runDeviceIPtests(deviceType, ipAddr, v);
           }
         });
@@ -177,9 +153,7 @@ class Devices extends Iterable<MapEntry<String, Device>> {
         ..pixelCount = wledConfig.ledCount
         ..rgbwLED = config.rgbwLED
         ..syncMode = syncMode
-        ..rows = (wledConfig.rows == null)
-            ? 1
-            : int.tryParse(wledConfig.rows!) ?? 1;
+        ..rows = (wledConfig.rows == null) ? 1 : int.tryParse(wledConfig.rows!) ?? 1;
     }
 
     final deviceID = nanoid(10);
@@ -191,20 +165,14 @@ class Devices extends Iterable<MapEntry<String, Device>> {
     if (deviceType == "wled") {
       config.name = WLEDname;
     }
-    ledfx.config.devices.add({
-      "id": device.id,
-      "type": device.type,
-      "config": config.toJson(),
-    });
+    ledfx.config.devices.add({"id": device.id, "type": device.type, "config": config.toJson()});
 
     final virtualID = nanoid(10);
     int virtualConfigRows = 1;
     if (deviceType == "wled" && wledConfig != null && wledConfig.rows != null) {
       virtualConfigRows = int.tryParse(wledConfig.rows!) ?? 1;
     }
-    final segments = [
-      SegmentConfig(device.id, 0, config.pixelCount - 1, false),
-    ];
+    final segments = [SegmentConfig(device.id, 0, config.pixelCount - 1, false)];
 
     final virtualConfig = VirtualConfig(
       name: device.name,
@@ -258,13 +226,7 @@ abstract class Device {
       return 30;
     }
   }();
-  Device({
-    required this.id,
-    required this.ledfx,
-    required this.config,
-    int? refreshRate,
-    this.centerOffset = 0,
-  }) {
+  Device({required this.id, required this.ledfx, required this.config, int? refreshRate, this.centerOffset = 0}) {
     _refreshRate = refreshRate ?? 60;
   }
 
@@ -288,8 +250,7 @@ abstract class Device {
     _cachedVirtualsObjs = vs;
     return _cachedVirtualsObjs!;
   }();
-  List<String> get activeVirtuals =>
-      _virtualObjs.where((v) => v.active).map((v) => v.id).toList();
+  List<String> get activeVirtuals => _virtualObjs.where((v) => v.active).map((v) => v.id).toList();
   List<String>? _cachedVirtuals;
   List<String> get virtuals => () {
     if (_cachedVirtuals != null) return _cachedVirtuals!;
@@ -327,7 +288,7 @@ abstract class Device {
 
   ///Flushes the provided data to the device. This abstract method must be
   ///overwritten by the device implementation.
-  void flush(List<Float64List> data) {
+  void flush(List<Uint8List> pixelData) {
     return;
   }
 
@@ -377,10 +338,7 @@ abstract class Device {
     return;
   }
 
-  void updatePixels(
-    String virtualID,
-    List<(List<Float64List>, int, int)> data,
-  ) {
+  void updatePixels(String virtualID, List<(List<Float64List>, int, int)> data) {
     if (_active == false) {
       debugPrint("Can't update inactive device: $name");
       return;
@@ -389,8 +347,7 @@ abstract class Device {
     for (final (pixels, start, end) in data) {
       if (pixels.isNotEmpty && _pixels != null && _pixels!.isNotEmpty) {
         if (pixels[0].length == 3 ||
-            ((pixels.length < end && _pixels!.length < end) &&
-                pixels[start].length == _pixels![start].length)) {
+            ((pixels.length < end && _pixels!.length < end) && pixels[start].length == _pixels![start].length)) {
           for (int i = start; i < end + 1; i++) {
             _pixels![i] = pixels[i];
           }
@@ -418,11 +375,24 @@ abstract class Device {
     }
   }
 
-  List<Float64List>? assembleFrame() {
+  List<Uint8List>? assembleFrame() {
     if (_pixels == null) return null;
     List<Float64List> frame = _pixels!;
     if (centerOffset > 0) frame = rollList(frame, centerOffset);
-    return frame;
+
+    final int totalBytes = frame.length * 3;
+    final Uint8List byteData = Uint8List(totalBytes);
+    int byteIndex = 0;
+
+    for (final Float64List pixelData in frame) {
+      for (final double value in pixelData) {
+        byteData[byteIndex++] = value.toInt().clamp(0, 255);
+      }
+    }
+
+    return frame
+        .map((pixelData) => Uint8List.fromList(pixelData.map((v) => v.toInt().clamp(0, 255)).toList()))
+        .toList();
   }
 
   // Returns the first virtual that has the highest refresh rate of all virtuals
@@ -433,14 +403,9 @@ abstract class Device {
 
     if (!_virtualObjs.any((v) => v.active)) return null;
 
-    final refreshRate = _virtualObjs
-        .where((v) => v.active)
-        .map((v) => v.refreshRate)
-        .reduce(max);
+    final refreshRate = _virtualObjs.where((v) => v.active).map((v) => v.refreshRate).reduce(max);
 
-    final Virtual priority = _virtualObjs.firstWhere(
-      (virtual) => virtual.refreshRate == refreshRate,
-    );
+    final Virtual priority = _virtualObjs.firstWhere((virtual) => virtual.refreshRate == refreshRate);
 
     _cachedPriorityVirtual = priority;
     return _cachedPriorityVirtual;

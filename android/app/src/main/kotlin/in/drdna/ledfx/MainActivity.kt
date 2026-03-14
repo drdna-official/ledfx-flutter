@@ -86,7 +86,7 @@ class MainActivity : FlutterFragmentActivity() {
                                 action = RecordingService.ACTION_STOP
                             }
                     startService(svc)
-                    result.success(null)
+                    result.success(true)
                 }
                 "setupBackgroundExecution" -> {
                     val args = call.arguments as? Map<*, *>

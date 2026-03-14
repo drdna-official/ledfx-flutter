@@ -149,7 +149,7 @@ void AudioRecorder::Stop() {
     }
 
     if (state_callback_) {
-        state_callback_("recordingStopped");
+        state_callback_("recording_stopped");
     }
 }
 
@@ -234,7 +234,7 @@ void AudioRecorder::CaptureAudio(IMMDevice* device, bool loopback) {
     }
 
     audio_client_->Start();
-    if (state_callback_) state_callback_("recordingStarted");
+    if (state_callback_) state_callback_("recording_started");
 
     while (is_capturing_) {
         DWORD waitResult = WaitForSingleObject(hEvent, INFINITE);

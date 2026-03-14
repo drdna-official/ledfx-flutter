@@ -50,9 +50,7 @@ class Aubio {
     } else if (Platform.isWindows) {
       return ffi.DynamicLibrary.open('$libName.dll');
     } else {
-      throw UnsupportedError(
-        'Unsupported platform: ${Platform.operatingSystem}',
-      );
+      throw UnsupportedError('Unsupported platform: ${Platform.operatingSystem}');
     }
   }
 
@@ -71,10 +69,7 @@ class Aubio {
     return bindings.new_aubio_filter(order);
   }
 
-  static Pointer<aubio_filterbank_t> createFilterBank(
-    int filterNumber,
-    int windowSize,
-  ) {
+  static Pointer<aubio_filterbank_t> createFilterBank(int filterNumber, int windowSize) {
     return bindings.new_aubio_filterbank(filterNumber, windowSize);
   }
 
@@ -82,15 +77,8 @@ class Aubio {
     return bindings.new_aubio_pvoc(windowSize, hopSize);
   }
 
-  static Pointer<aubio_resampler_t> createResampler(
-    ResamplerType type,
-    int inSampleRate,
-    int outSampleRate,
-  ) {
-    return bindings.new_aubio_resampler(
-      outSampleRate / inSampleRate,
-      type.value,
-    );
+  static Pointer<aubio_resampler_t> createResampler(ResamplerType type, int inSampleRate, int outSampleRate) {
+    return bindings.new_aubio_resampler(outSampleRate / inSampleRate, type.value);
   }
 
   static void deletePhaseVocoder(Pointer<aubio_pvoc_t> pvoc) {
@@ -105,23 +93,15 @@ class Aubio {
     return bindings.aubio_pvoc_get_win(pvoc);
   }
 
-  static bool setPhaseVocoderWindow(
-    Pointer<aubio_pvoc_t> pvoc,
-    String windowType,
-  ) {
+  static bool setPhaseVocoderWindow(Pointer<aubio_pvoc_t> pvoc, String windowType) {
     final windowPtr = windowType.toNativeUtf8();
-    final result =
-        bindings.aubio_pvoc_set_window(pvoc, windowPtr.cast<Char>()) == 0;
+    final result = bindings.aubio_pvoc_set_window(pvoc, windowPtr.cast<Char>()) == 0;
     calloc.free(windowPtr);
     return result;
   }
 
   // Phase vocoder analysis (time -> frequency domain)
-  static Pointer<cvec_t> phaseVocoderAnalysis(
-    Pointer<aubio_pvoc_t> pvoc,
-    Float64List audioInput,
-    int windowSize,
-  ) {
+  static Pointer<cvec_t> phaseVocoderAnalysis(Pointer<aubio_pvoc_t> pvoc, Float64List audioInput, int windowSize) {
     final inputVec = createFvecFromFloat64List(audioInput);
     final fftGrain = bindings.new_cvec(windowSize);
 
@@ -132,11 +112,7 @@ class Aubio {
   }
 
   // Phase vocoder synthesis (frequency -> time domain)
-  static Float64List phaseVocoderSynthesis(
-    Pointer<aubio_pvoc_t> pvoc,
-    Pointer<cvec_t> fftGrain,
-    int hopSize,
-  ) {
+  static Float64List phaseVocoderSynthesis(Pointer<aubio_pvoc_t> pvoc, Pointer<cvec_t> fftGrain, int hopSize) {
     final outputVec = bindings.new_fvec(hopSize);
 
     bindings.aubio_pvoc_rdo(pvoc, fftGrain, outputVec);
@@ -152,10 +128,7 @@ class Aubio {
   }
 
   // Extract magnitude and phase from complex vector
-  static (Float64List, Float64List) extractMagnitudePhase(
-    Pointer<cvec_t> fftGrain,
-    int windowSize,
-  ) {
+  static (Float64List, Float64List) extractMagnitudePhase(Pointer<cvec_t> fftGrain, int windowSize) {
     final length = (windowSize ~/ 2) + 1;
     final magnitudes = Float64List(length);
     final phases = Float64List(length);
@@ -169,11 +142,7 @@ class Aubio {
   }
 
   // Set magnitude and phase in complex vector
-  static void setMagnitudePhase(
-    Pointer<cvec_t> fftGrain,
-    Float64List magnitudes,
-    Float64List phases,
-  ) {
+  static void setMagnitudePhase(Pointer<cvec_t> fftGrain, Float64List magnitudes, Float64List phases) {
     final length = magnitudes.length;
     for (int i = 0; i < length; i++) {
       bindings.cvec_norm_set_sample(fftGrain, magnitudes[i], i);
@@ -191,19 +160,9 @@ class Aubio {
   }
 
   // Onset detection functionality
-  static Pointer<aubio_onset_t> createOnset(
-    String method,
-    int bufSize,
-    int hopSize,
-    int sampleRate,
-  ) {
+  static Pointer<aubio_onset_t> createOnset(String method, int bufSize, int hopSize, int sampleRate) {
     final methodPtr = method.toNativeUtf8();
-    final onset = bindings.new_aubio_onset(
-      methodPtr.cast<Char>(),
-      bufSize,
-      hopSize,
-      sampleRate,
-    );
+    final onset = bindings.new_aubio_onset(methodPtr.cast<Char>(), bufSize, hopSize, sampleRate);
     calloc.free(methodPtr);
     return onset;
   }
@@ -212,10 +171,7 @@ class Aubio {
     bindings.del_aubio_onset(onset);
   }
 
-  static double detectOnset(
-    Pointer<aubio_onset_t> onset,
-    Float64List audioData,
-  ) {
+  static double detectOnset(Pointer<aubio_onset_t> onset, Float64List audioData) {
     final inputVec = createFvecFromFloat64List(audioData);
     final outputVec = bindings.new_fvec(1);
 
@@ -229,19 +185,9 @@ class Aubio {
   }
 
   // Pitch detection functionality
-  static Pointer<aubio_pitch_t> createPitch(
-    String method,
-    int bufSize,
-    int hopSize,
-    int sampleRate,
-  ) {
+  static Pointer<aubio_pitch_t> createPitch(String method, int bufSize, int hopSize, int sampleRate) {
     final methodPtr = method.toNativeUtf8();
-    final pitch = bindings.new_aubio_pitch(
-      methodPtr.cast<Char>(),
-      bufSize,
-      hopSize,
-      sampleRate,
-    );
+    final pitch = bindings.new_aubio_pitch(methodPtr.cast<Char>(), bufSize, hopSize, sampleRate);
     calloc.free(methodPtr);
     return pitch;
   }
@@ -250,10 +196,7 @@ class Aubio {
     bindings.del_aubio_pitch(pitch);
   }
 
-  static double detectPitch(
-    Pointer<aubio_pitch_t> pitch,
-    Float64List audioData,
-  ) {
+  static double detectPitch(Pointer<aubio_pitch_t> pitch, Float64List audioData) {
     final inputVec = createFvecFromFloat64List(audioData);
     final outputVec = bindings.new_fvec(1);
 
@@ -361,9 +304,7 @@ extension PhaseVocoderExt on Pointer<aubio_pvoc_t> {
 
   bool setWindow(String windowType) {
     final windowPtr = windowType.toNativeUtf8();
-    final result =
-        Aubio.bindings.aubio_pvoc_set_window(cast(), windowPtr.cast<Char>()) ==
-        0;
+    final result = Aubio.bindings.aubio_pvoc_set_window(cast(), windowPtr.cast<Char>()) == 0;
     calloc.free(windowPtr);
     return result;
   }
@@ -405,10 +346,7 @@ extension FilterbankExt on Pointer<aubio_filterbank_t> {
     Aubio.bindings.del_aubio_filterbank(cast());
   }
 
-  bool setTriangleBandsF32({
-    required Float64List freqs,
-    required int sampleRate,
-  }) {
+  bool setTriangleBandsF32({required Float64List freqs, required int sampleRate}) {
     final int n = freqs.length;
     final ptrFreqs = Aubio.bindings.new_fvec(n);
     if (ptrFreqs == ffi.nullptr) {
@@ -419,11 +357,7 @@ extension FilterbankExt on Pointer<aubio_filterbank_t> {
       for (var i = 0; i < n; i++) {
         data[i] = freqs[i];
       }
-      final res = Aubio.bindings.aubio_filterbank_set_triangle_bands(
-        cast(),
-        ptrFreqs,
-        sampleRate.toDouble(),
-      );
+      final res = Aubio.bindings.aubio_filterbank_set_triangle_bands(cast(), ptrFreqs, sampleRate.toDouble());
       return res == 0;
     } finally {
       Aubio.bindings.del_fvec(ptrFreqs);
