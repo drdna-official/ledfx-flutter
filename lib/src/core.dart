@@ -1,13 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/devices/device.dart';
-import 'package:ledfx/src/effects/audio.dart';
+import 'package:ledfx/src/effects/audio_reactive/audio.dart';
 import 'package:ledfx/src/effects/effect.dart';
-import 'package:ledfx/src/effects/wavelength.dart';
-import 'package:ledfx/src/effects/melbank.dart';
+import 'package:ledfx/src/effects/effects/wavelength.dart';
+import 'package:ledfx/src/effects/audio_reactive/melbank.dart';
 import 'package:ledfx/src/events.dart';
 import 'package:ledfx/src/virtual.dart';
 import 'package:ledfx/src/storage/storage.dart';
-import 'package:n_dimensional_array/domain/models/nd_array.dart';
 
 enum Transmission { base64Compressed, uncompressed }
 
@@ -189,8 +188,6 @@ class LEDFx {
   }
 
   Future<void> stop([int exitCode = 0]) async {
-    print("stopping ...");
-    try {} catch (e) {
-    } finally {}
+    debugPrint("stopping ...");
   }
 }

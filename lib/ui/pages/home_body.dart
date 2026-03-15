@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ledfx/src/devices/device.dart';
 import 'package:ledfx/src/effects/effect.dart';
 import 'package:ledfx/worker.dart';
-import 'package:ledfx/visualizer/visualizer_painter.dart';
+import 'package:ledfx/ui/visualizer/visualizer_painter.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 Future<bool> requestNotificationPermission() async {

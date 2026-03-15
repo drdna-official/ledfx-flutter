@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:ledfx/background.dart' as bg;
-import 'package:ledfx/src/platform/audio_bridge.dart';
+import 'package:ledfx/platform_interface/audio_bridge.dart';
 import 'package:ledfx/worker.dart';
-import 'package:ledfx/ui/adaptive_layout.dart';
+import 'package:ledfx/ui/pages/adaptive_layout.dart';
 
 @pragma('vm:entry-point')
 void backgroundAudioProcessing() => bg.backgroundAudioProcessing();

@@ -1,8 +1,9 @@
-import 'package:ledfx/src/effects/audio.dart';
+import 'package:ledfx/src/effects/audio_reactive/audio.dart';
 import 'package:ledfx/src/effects/effect.dart';
-import 'package:ledfx/src/effects/math.dart';
-import 'package:ledfx/src/effects/utils.dart';
 import 'package:ledfx/src/virtual.dart';
+import 'package:ledfx/utils/utils.dart';
+
+import 'mel_utils.dart';
 
 mixin AudioReactiveEffect on Effect {
   AudioAnalysisSource? audio;
@@ -45,9 +46,7 @@ mixin AudioReactiveEffect on Effect {
     if (_cachedSelectedMelbank != null) return _cachedSelectedMelbank!;
     if (audio == null) throw Exception("AudioAnalysisSource not initiated");
     if (virtual == null) throw Exception("No Virtual set for the device");
-    _cachedSelectedMelbank = audio!.melbanks.melbankConfig.maxFreqs.indexWhere(
-      (freq) => freq >= virtual!.freqRange.$2,
-    );
+    _cachedSelectedMelbank = audio!.melbanks.melbankConfig.maxFreqs.indexWhere((freq) => freq >= virtual!.freqRange.$2);
     if (_cachedSelectedMelbank == -1) {
       _cachedSelectedMelbank = audio!.melbanks.melbankConfig.maxFreqs.length;
     }
@@ -59,11 +58,9 @@ mixin AudioReactiveEffect on Effect {
     if (_cachedMelbankMinIdx != null) return _cachedMelbankMinIdx!;
     if (audio == null) throw Exception("AudioAnalysisSource not initiated");
     if (virtual == null) throw Exception("No Virtual set for the device");
-    _cachedMelbankMinIdx = audio!
-        .melbanks
-        .melbankProcessors[selectedMelbank]
-        .melbankFreqs
-        .indexWhere((freq) => freq >= virtual!.freqRange.$1);
+    _cachedMelbankMinIdx = audio!.melbanks.melbankProcessors[selectedMelbank].melbankFreqs.indexWhere(
+      (freq) => freq >= virtual!.freqRange.$1,
+    );
     return _cachedMelbankMinIdx!;
   }();
 
@@ -72,17 +69,11 @@ mixin AudioReactiveEffect on Effect {
     if (_cachedMelbankMaxIdx != null) return _cachedMelbankMaxIdx!;
     if (audio == null) throw Exception("AudioAnalysisSource not initiated");
     if (virtual == null) throw Exception("No Virtual set for the device");
-    _cachedMelbankMaxIdx = audio!
-        .melbanks
-        .melbankProcessors[selectedMelbank]
-        .melbankFreqs
-        .indexWhere((freq) => freq >= virtual!.freqRange.$2);
+    _cachedMelbankMaxIdx = audio!.melbanks.melbankProcessors[selectedMelbank].melbankFreqs.indexWhere(
+      (freq) => freq >= virtual!.freqRange.$2,
+    );
     if (_cachedMelbankMaxIdx == -1) {
-      _cachedMelbankMaxIdx = audio!
-          .melbanks
-          .melbankProcessors[selectedMelbank]
-          .melbankFreqs
-          .length;
+      _cachedMelbankMaxIdx = audio!.melbanks.melbankProcessors[selectedMelbank].melbankFreqs.length;
     }
     return _cachedMelbankMaxIdx!;
   }();
@@ -105,10 +96,10 @@ mixin AudioReactiveEffect on Effect {
 
     // 2. NumPy linspace conversion
     // old = np.linspace(0, 1, self._input_mel_length)
-    final List<double> old = linspace(0.0, 1.0, inputMelLength);
+    final List<double> old = NumListExtension.equallySpaced(0.0, 1.0, inputMelLength);
 
     // new = np.linspace(0, 1, size)
-    final List<double> newArr = linspace(0.0, 1.0, size);
+    final List<double> newArr = NumListExtension.equallySpaced(0.0, 1.0, size);
 
     // 3. Store and Return
     // Return (new, old)
@@ -126,18 +117,14 @@ mixin AudioReactiveEffect on Effect {
   List<double> melbank({bool filtered = false, int? size}) {
     if (audio == null) throw Exception("AudioAnalysisSource not set");
     final melbank = (filtered)
-        ? audio!.melbanks.melbanksFiltered[selectedMelbank]
-              .getRange(melbankMinIdx, melbankMaxIdx)
-              .toList()
-        : audio!.melbanks.melbanks[selectedMelbank]
-              .getRange(melbankMinIdx, melbankMaxIdx)
-              .toList();
+        ? audio!.melbanks.melbanksFiltered[selectedMelbank].getRange(melbankMinIdx, melbankMaxIdx).toList()
+        : audio!.melbanks.melbanks[selectedMelbank].getRange(melbankMinIdx, melbankMaxIdx).toList();
 
     if (size != null && inputMelLength != size) {
       List<List<double>> linspaces = getMelbankInterpLinspaces(size);
       List<double> newArr = linspaces[0];
       List<double> oldArr = linspaces[1];
-      return interp(newArr, oldArr, melbank);
+      return InterpList.linear(newArr, oldArr, melbank);
     } else {
       return melbank;
     }

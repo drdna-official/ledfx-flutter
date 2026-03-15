@@ -5,13 +5,14 @@ import 'dart:math' show max, min;
 import 'package:flutter/foundation.dart';
 import 'package:ledfx/ffi/aubio/aubio.dart';
 import 'package:ledfx/ffi/aubio/aubio_bindings.dart';
-import 'package:ledfx/src/platform/audio_bridge.dart';
+import 'package:ledfx/platform_interface/audio_bridge.dart';
 import 'package:ledfx/src/core.dart';
-import 'package:ledfx/src/effects/const.dart';
-import 'package:ledfx/src/effects/dsp.dart';
-import 'package:ledfx/src/effects/math.dart';
-import 'package:ledfx/src/effects/melbank.dart';
-import 'package:ledfx/src/effects/utils.dart' show CircularBuffer, FixedSizeQueue;
+import 'package:ledfx/src/effects/audio_reactive/const.dart';
+import 'package:ledfx/src/effects/audio_reactive/dsp.dart';
+import 'package:ledfx/src/effects/audio_reactive/melbank.dart';
+import 'package:ledfx/utils/utils.dart';
+
+import 'mel_utils.dart';
 
 abstract class AudioInputSource {
   final LEDFx ledfx;
@@ -59,7 +60,7 @@ abstract class AudioInputSource {
   late Pointer<aubio_filter_t> preEmphasis;
   late Pointer<aubio_pvoc_t> phaseVocoder;
   Pointer<aubio_resampler_t>? resampler;
-  FixedSizeQueue? delayQueue;
+  FixedSizeBuffer? delayQueue;
 
   final List<double> _audioEventBuffer = [];
   void activate() {
@@ -121,7 +122,7 @@ abstract class AudioInputSource {
 
     final samplesToDelay = (0.001 * delay.inMilliseconds * sampleRate).toInt();
     if (samplesToDelay > 0) {
-      delayQueue = FixedSizeQueue(samplesToDelay);
+      delayQueue = FixedSizeBuffer(samplesToDelay);
     } else {
       delayQueue = null;
     }

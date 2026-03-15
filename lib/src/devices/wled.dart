@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:typed_data';
-import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/devices/ddp.dart';
 import 'package:ledfx/src/devices/device.dart';
 import 'package:http/http.dart' as http;
@@ -110,7 +109,7 @@ class WLED {
 
   Future<Map<String, dynamic>?> _requestGET(String endpoint) async {
     try {
-      print("requesting config at http://$ipAddr/$endpoint");
+      debugPrint("requesting config at http://$ipAddr/$endpoint");
       final response = await http.get(Uri.parse("http://$ipAddr/$endpoint"));
       // final response = await http.get(Uri.parse("http://192.168.0.150"));
       if (response.statusCode == 200) {
@@ -180,7 +179,7 @@ class WLED {
 
       // return wled_config
     } catch (e) {
-      print(e.toString());
+      debugPrint(e.toString());
       return null;
     }
   }

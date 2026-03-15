@@ -3,12 +3,10 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/src/devices/dummy.dart';
-import 'package:ledfx/src/devices/utils.dart';
 import 'package:ledfx/src/devices/wled.dart';
-import 'package:ledfx/src/effects/utils.dart';
 import 'package:ledfx/src/events.dart';
 import 'package:ledfx/src/virtual.dart';
-import 'package:ledfx/utils.dart';
+import 'package:ledfx/utils/utils.dart';
 import 'package:nanoid/nanoid.dart';
 
 class DeviceConfig {
@@ -87,7 +85,7 @@ class Devices extends Iterable<MapEntry<String, Device>> {
     try {
       await Future.wait(asyncDevices);
     } catch (e) {
-      print(e.toString());
+      debugPrint(e.toString());
     }
   }
 
@@ -128,7 +126,7 @@ class Devices extends Iterable<MapEntry<String, Device>> {
       }
     }
 
-    String WLEDname = "";
+    String wledName = "";
     WLEDConfig? wledConfig;
     if (deviceType == "wled") {
       final wled = WLED(ipAddr: resolvedDestination);
@@ -137,11 +135,11 @@ class Devices extends Iterable<MapEntry<String, Device>> {
         throw Exception("could not fetch config of wled device");
       }
       if (config.name.isNotEmpty) {
-        WLEDname = config.name;
+        wledName = config.name;
       } else if (wledConfig.name == "WLED") {
-        WLEDname = "${wledConfig.name} - ${wledConfig.mac}".toUpperCase();
+        wledName = "${wledConfig.name} - ${wledConfig.mac}".toUpperCase();
       } else {
-        WLEDname = wledConfig.name;
+        wledName = wledConfig.name;
       }
       WLEDSyncMode syncMode = WLEDSyncMode.udp;
       if (WLED.wledDDPsupport(wledConfig.build)) {
@@ -149,7 +147,7 @@ class Devices extends Iterable<MapEntry<String, Device>> {
       }
 
       config
-        ..name = WLEDname
+        ..name = wledName
         ..pixelCount = wledConfig.ledCount
         ..rgbwLED = config.rgbwLED
         ..syncMode = syncMode
@@ -163,7 +161,7 @@ class Devices extends Iterable<MapEntry<String, Device>> {
     }
     config = device.config;
     if (deviceType == "wled") {
-      config.name = WLEDname;
+      config.name = wledName;
     }
     ledfx.config.devices.add({"id": device.id, "type": device.type, "config": config.toJson()});
 
@@ -378,7 +376,7 @@ abstract class Device {
   List<Uint8List>? assembleFrame() {
     if (_pixels == null) return null;
     List<Float64List> frame = _pixels!;
-    if (centerOffset > 0) frame = rollList(frame, centerOffset);
+    if (centerOffset > 0) frame.roll(centerOffset);
 
     final int totalBytes = frame.length * 3;
     final Uint8List byteData = Uint8List(totalBytes);

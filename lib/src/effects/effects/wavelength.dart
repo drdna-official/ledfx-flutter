@@ -1,11 +1,9 @@
-import 'package:ledfx/src/effects/audio.dart';
-import 'package:ledfx/src/effects/audio_reactive.dart';
+import 'package:ledfx/src/effects/audio_reactive/audio.dart';
+import 'package:ledfx/src/effects/audio_reactive/audio_reactive.dart';
 import 'package:ledfx/src/effects/effect.dart';
-import 'package:ledfx/src/effects/gradient.dart';
+import 'package:ledfx/src/effects/effects/gradient.dart';
 
-class WavelengthEffect extends Effect
-    with AudioReactiveEffect, GradientAudioEffect
-    implements EffectMixin {
+class WavelengthEffect extends Effect with AudioReactiveEffect, GradientAudioEffect implements EffectMixin {
   WavelengthEffect({required super.ledfx, required super.config});
   late List<double> r;
 

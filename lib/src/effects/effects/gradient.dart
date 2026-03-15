@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/effects/effect.dart';
-import 'package:ledfx/src/effects/utils.dart';
+import 'package:ledfx/utils/utils.dart';
 
 class RgbColor {
   final double r, g, b;
@@ -88,8 +88,7 @@ mixin GradientAudioEffect on Effect {
     if (_gradientCurve ==
             null // uninitialised gradient
             ||
-        (_gradientCurve != null &&
-            _gradientCurve![0].length != gradientPixelCount) // incorrect size
+        (_gradientCurve != null && _gradientCurve![0].length != gradientPixelCount) // incorrect size
         ) {
       generateGradientCurve(gradient, gradientPixelCount);
     }
@@ -114,9 +113,7 @@ mixin GradientAudioEffect on Effect {
 
     // --- CASE 2: Defined Gradient ---
     GradientDef gradientDef = gradient as GradientDef;
-    List<(RgbColor, double)> gradientColors = List.of(
-      gradientDef.colors,
-    ).map((c) => (c.$1, c.$2 / 100)).toList();
+    List<(RgbColor, double)> gradientColors = List.of(gradientDef.colors).map((c) => (c.$1, c.$2 / 100)).toList();
 
     // 1. Fill in start and end colors if not explicitly given
     if (gradientColors.isNotEmpty && gradientColors.first.$2 != 0.0) {
@@ -139,9 +136,7 @@ mixin GradientAudioEffect on Effect {
     // Python: gradient_splits = [int(gradient_length * position) for position in gradient_splits if 0 < position < 1]
     List<int> gradientSplits = splits
         .where((pos) => pos > 0.0 && pos < 1.0)
-        .map(
-          (pos) => (gradientLength * pos).round(),
-        ) // Use round for better precision
+        .map((pos) => (gradientLength * pos).round()) // Use round for better precision
         .toList();
 
     // 4. Pair colors for transition (1,2), (2,3), ...
@@ -201,18 +196,13 @@ mixin GradientAudioEffect on Effect {
     // To match that exactly, we'd need to restructure the final List<double> into a 3xN structure.
   }
 
-  List<double> _ease(
-    int chunkLen,
-    double startVal,
-    double endVal, {
-    double slope = 1.5,
-  }) {
+  List<double> _ease(int chunkLen, double startVal, double endVal, {double slope = 1.5}) {
     if (chunkLen <= 0) {
       return [];
     }
 
     // 1. x = np.linspace(0, 1, chunk_len)
-    List<double> x = linspace(0.0, 1.0, chunkLen);
+    List<double> x = NumListExtension.equallySpaced(0.0, 1.0, chunkLen);
 
     // 2. diff = end_val - start_val
     final double diff = endVal - startVal;
@@ -271,9 +261,7 @@ mixin GradientAudioEffect on Effect {
     // --- 2. Calculate Indices ---
     final int maxIndex = gradientPixelCount - 1;
 
-    List<int> indices = clampedPoints
-        .map((p) => (maxIndex * p).round())
-        .toList();
+    List<int> indices = clampedPoints.map((p) => (maxIndex * p).round()).toList();
 
     // --- 3. Advanced Indexing (Python: return self._gradient_curve[:, indices]) ---
 
@@ -356,9 +344,7 @@ List<List<double>> transpose3xNToNx3(List<List<double>> matrix3xN) {
     return []; // Handle empty input gracefully.
   }
   if (matrix3xN.length != 3) {
-    throw ArgumentError(
-      'The input matrix must have exactly 3 rows for a 3xN transposition.',
-    );
+    throw ArgumentError('The input matrix must have exactly 3 rows for a 3xN transposition.');
   }
 
   // N is the number of columns in the 3xN matrix, which is the length
@@ -381,9 +367,7 @@ List<List<double>> transpose3xNToNx3(List<List<double>> matrix3xN) {
     // Loop through original rows (i=0, 1, 2)
     // Validate that all rows have the same length (N)
     if (matrix3xN[i].length != numColsN) {
-      throw ArgumentError(
-        'All rows in the input matrix must have the same number of columns.',
-      );
+      throw ArgumentError('All rows in the input matrix must have the same number of columns.');
     }
 
     for (int j = 0; j < numColsN; j++) {

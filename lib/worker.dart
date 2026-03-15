@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/devices/device.dart';
 import 'package:ledfx/src/effects/effect.dart';
-import 'package:ledfx/src/platform/audio_bridge.dart';
+import 'package:ledfx/platform_interface/audio_bridge.dart';
 
 /// The proxy class that the UI uses to communicate with the background
 /// `LEDFx` isolate.

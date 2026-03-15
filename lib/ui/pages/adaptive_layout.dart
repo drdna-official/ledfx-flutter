@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ledfx/ui/home_body.dart';
+import 'package:ledfx/ui/pages/home_body.dart';
 
 // Recommended Material Design Breakpoints
 const double kMediumBreakpoint = 600.0;

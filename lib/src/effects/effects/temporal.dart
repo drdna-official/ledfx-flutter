@@ -1,7 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/effects/effect.dart';
-import 'package:ledfx/src/effects/utils.dart';
+import 'package:ledfx/utils/utils.dart';
 
 // ignore: constant_identifier_names
 const DEFAULT_RATE = 1.0 / 10.0;
@@ -9,11 +10,7 @@ const DEFAULT_RATE = 1.0 / 10.0;
 abstract class TemporalEffect extends Effect implements EffectMixin {
   final double speed;
 
-  TemporalEffect({
-    required super.ledfx,
-    required super.config,
-    this.speed = 1.0,
-  });
+  TemporalEffect({required super.ledfx, required super.config, this.speed = 1.0});
 
   bool _active = false;
   Timer? _loopTimer;
@@ -29,9 +26,7 @@ abstract class TemporalEffect extends Effect implements EffectMixin {
     var sleepInterval = effectLoop();
     sleepInterval = (sleepInterval ?? 1.0) * DEFAULT_RATE;
 
-    _interval =
-        ((sleepInterval / speed) -
-        (DateTime.now().microsecondsSinceEpoch - currentTime) * 0.000001);
+    _interval = ((sleepInterval / speed) - (DateTime.now().microsecondsSinceEpoch - currentTime) * 0.000001);
     if (_interval! < 0.001) _interval = 0.001;
 
     final intervalInMili = (_interval! * 1000).round();
@@ -39,10 +34,7 @@ abstract class TemporalEffect extends Effect implements EffectMixin {
     if (intervalInMili != currentIntervalInMiliS) {
       currentIntervalInMiliS = intervalInMili;
       timer.cancel();
-      _loopTimer = Timer.periodic(
-        Duration(milliseconds: currentIntervalInMiliS),
-        _loopFunction,
-      );
+      _loopTimer = Timer.periodic(Duration(milliseconds: currentIntervalInMiliS), _loopFunction);
     }
   }
 
@@ -53,12 +45,9 @@ abstract class TemporalEffect extends Effect implements EffectMixin {
 
   @override
   void onActivate(int pixelCount) {
-    print("starting effect loop");
+    debugPrint("starting effect loop");
     _active = true;
-    _loopTimer = Timer.periodic(
-      Duration(milliseconds: currentIntervalInMiliS),
-      _loopFunction,
-    );
+    _loopTimer = Timer.periodic(Duration(milliseconds: currentIntervalInMiliS), _loopFunction);
   }
 
   @override
@@ -74,12 +63,7 @@ abstract class TemporalEffect extends Effect implements EffectMixin {
 
 class RainbowEffect extends TemporalEffect {
   double freq;
-  RainbowEffect({
-    required super.ledfx,
-    required super.config,
-    super.speed,
-    this.freq = 1.0,
-  });
+  RainbowEffect({required super.ledfx, required super.config, super.speed, this.freq = 1.0});
 
   double _hue = 0.1;
 

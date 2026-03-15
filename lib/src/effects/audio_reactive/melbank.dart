@@ -5,11 +5,10 @@ import 'dart:typed_data';
 import 'package:ledfx/ffi/aubio/aubio.dart';
 import 'package:ledfx/ffi/aubio/aubio_bindings.dart';
 import 'package:ledfx/src/core.dart';
-import 'package:ledfx/src/effects/audio.dart';
-import 'package:ledfx/src/effects/const.dart';
-import 'package:ledfx/src/effects/math.dart';
-import 'package:ledfx/src/effects/mel_utils.dart';
-import 'package:ledfx/src/effects/utils.dart';
+import 'package:ledfx/src/effects/audio_reactive/audio.dart';
+import 'package:ledfx/src/effects/audio_reactive/const.dart';
+import 'package:ledfx/src/effects/audio_reactive/mel_utils.dart';
+import 'package:ledfx/utils/utils.dart';
 
 class MelbankConfig {
   MelbankConfig({required this.name, this.maxFreq = MAX_FREQ, this.minFreq = MIN_FREQ});
@@ -141,7 +140,7 @@ class Melbank {
     powerFactor = tan(0.5 * pi * (config.peakIsolation + 1) / 2);
     switch (config.coeffType) {
       case CoeffType.mattmel:
-        final List<double> melbankMatt = equallySpacedDoublesList(
+        final List<double> melbankMatt = NumListExtension.equallySpaced(
           hzTOmatt(config.minFreq.toDouble()),
           hzTOmatt(config.maxFreq.toDouble()),
           config.samples + 2,
@@ -183,7 +182,7 @@ class Melbank {
     for (int i = 0; i < melbank.length; i++) {
       melbank[i] = pow(melbank[i], powerFactor).toDouble();
     }
-    melGain.update(maxOfList(fastBlurArray(melbank, 1.0)));
+    melGain.update(fastBlurArray(melbank, 1.0).maxOrZero());
 
     final double gainValue = melGain.value.toDouble();
     for (int i = 0; i < melbank.length; i++) {
@@ -196,7 +195,7 @@ class Melbank {
     }
 
     List<double> smoothedBanks = melSmoothing.update(melbank);
-    copyListContents(melbank, smoothedBanks);
+    melbank.copyFromList(smoothedBanks);
 
     commonFilter.update(melbank);
 
@@ -204,7 +203,7 @@ class Melbank {
       return melbank[i] - commonFilter.value[i];
     });
     List<double> diffFiltered = diffFilter.update(differenceArray);
-    copyListContents(filteredMelbank, diffFiltered);
+    filteredMelbank.copyFromList(diffFiltered);
   }
 }
 

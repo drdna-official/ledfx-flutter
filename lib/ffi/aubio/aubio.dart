@@ -367,16 +367,16 @@ extension FilterbankExt on Pointer<aubio_filterbank_t> {
   /// Process one FFT-magnitude frame (length fftSize/2+1) and returns
   /// a Float64List of length [nBands] with mel-energies.
   Float64List process(Pointer<cvec_t> freqDomain, int outLen) {
-    final _outVec = Aubio.bindings.new_fvec(outLen);
+    final outVec = Aubio.bindings.new_fvec(outLen);
     // Run mel-filterbank
-    Aubio.bindings.aubio_filterbank_do(cast(), freqDomain, _outVec);
+    Aubio.bindings.aubio_filterbank_do(cast(), freqDomain, outVec);
     // Read out mel-band energies
-    final ptrOut = Aubio.bindings.fvec_get_data(_outVec);
+    final ptrOut = Aubio.bindings.fvec_get_data(outVec);
     final out = Float64List(outLen);
     for (var i = 0; i < outLen; i++) {
       out[i] = ptrOut[i];
     }
-    Aubio.bindings.del_fvec(_outVec);
+    Aubio.bindings.del_fvec(outVec);
     return out;
   }
 }

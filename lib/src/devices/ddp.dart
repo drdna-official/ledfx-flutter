@@ -126,7 +126,7 @@ class DDPDevice extends UDPDevice {
 
     // 1. VER1 | PUSH/0 (1 byte: B)
     int headerFlags = VER1 | (last ? VER1 : PUSH);
-    headerBuffer.setUint8(0, 0x01);
+    headerBuffer.setUint8(0, headerFlags);
 
     // 2. sequence (1 byte: B)
     headerBuffer.setUint8(1, 0x01);
@@ -141,7 +141,7 @@ class DDPDevice extends UDPDevice {
     // 5. total data length (packet_count * MAX_DATALEN) (4 bytes: L - unsigned long)
     // Note: DDP uses a 4-byte total length field.
     int totalDataLength = packetCount * MAX_DATALEN;
-    // headerBuffer.setUint32(4, totalDataLength, Endian.big);
+    headerBuffer.setUint32(4, totalDataLength, Endian.big);
 
     // 6. bytes_length (actual data size in this packet) (2 bytes: H - unsigned short)
     headerBuffer.setUint16(6, 10, Endian.big);

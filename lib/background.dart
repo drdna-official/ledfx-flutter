@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/src/devices/device.dart';
 import 'package:ledfx/src/effects/effect.dart';
-import 'package:ledfx/src/effects/wavelength.dart';
-import 'package:ledfx/src/platform/audio_bridge.dart';
+import 'package:ledfx/src/effects/effects/wavelength.dart';
+import 'package:ledfx/platform_interface/audio_bridge.dart';
 import 'package:ledfx/src/storage/storage.dart';
 
 @pragma('vm:entry-point')

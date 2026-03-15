@@ -50,9 +50,7 @@ Future<String> resolveDestination(
       hostAddress = ip;
     } else {
       // If it's a domain name, perform DNS lookup
-      List<InternetAddress> addresses = await InternetAddress.lookup(
-        sanitizedAddress,
-      );
+      List<InternetAddress> addresses = await InternetAddress.lookup(sanitizedAddress);
 
       if (addresses.isEmpty) {
         throw SocketException('Could not resolve host: $sanitizedAddress');
@@ -63,9 +61,7 @@ Future<String> resolveDestination(
   } on SocketException {
     throw SocketException('Resolution failed for $sanitizedAddress.');
   } catch (e) {
-    throw SocketException(
-      'An error occurred during resolution for $sanitizedAddress: $e',
-    );
+    throw SocketException('An error occurred during resolution for $sanitizedAddress: $e');
   }
 
   // 3. Check Reachability (Socket Connection)
@@ -80,16 +76,16 @@ Future<String> resolveDestination(
     } on SocketException {
       // The SocketException here means the connection failed,
       // which signifies that the host is NOT reachable on that port.
-      throw SocketException(
-        'Host $sanitizedAddress is resolvable but NOT reachable on port $port.',
-      );
+      throw SocketException('Host $sanitizedAddress is resolvable but NOT reachable on port $port.');
     } catch (e) {
       // Catch any other connection errors
-      throw SocketException(
-        'An unknown error occurred during reachability check: $e',
-      );
+      throw SocketException('An unknown error occurred during reachability check: $e');
     }
   } else {
     return sanitizedAddress;
   }
+}
+
+String cleanIPaddress(String addr) {
+  return addr.replaceFirst("https://", "").replaceFirst("https://", "").replaceFirst("/", "");
 }

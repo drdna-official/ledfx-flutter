@@ -4,9 +4,9 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/src/devices/device.dart' show Device;
-import 'package:ledfx/src/effects/const.dart';
+import 'package:ledfx/src/effects/audio_reactive/const.dart';
 import 'package:ledfx/src/effects/effect.dart';
-import 'package:ledfx/src/effects/utils.dart';
+import 'package:ledfx/utils/utils.dart';
 import 'package:ledfx/src/events.dart';
 import 'package:nanoid/nanoid.dart';
 
@@ -73,7 +73,9 @@ class VirtualConfig {
       centerOffset: json['centerOffset'] ?? 1,
       previewOnly: json['previewOnly'] ?? false,
       transitionTime: json['transitionTime'] ?? 0.4,
-      transitionMode: json['transitionMode'] != null ? TransitionMode.values.firstWhere((e) => e.name == json['transitionMode']) : TransitionMode.add,
+      transitionMode: json['transitionMode'] != null
+          ? TransitionMode.values.firstWhere((e) => e.name == json['transitionMode'])
+          : TransitionMode.add,
       rows: json['rows'] ?? 1,
     );
   }
@@ -87,21 +89,11 @@ class SegmentConfig {
   SegmentConfig(this.deviceID, this.start, this.end, this.inverted);
 
   Map<String, dynamic> toJson() {
-    return {
-      'deviceID': deviceID,
-      'start': start,
-      'end': end,
-      'inverted': inverted,
-    };
+    return {'deviceID': deviceID, 'start': start, 'end': end, 'inverted': inverted};
   }
 
   factory SegmentConfig.fromJson(Map<String, dynamic> json) {
-    return SegmentConfig(
-      json['deviceID'],
-      json['start'],
-      json['end'],
-      json['inverted'],
-    );
+    return SegmentConfig(json['deviceID'], json['start'], json['end'], json['inverted']);
   }
 }
 
@@ -258,9 +250,7 @@ class Virtual {
   int? _cachedGroupSize;
   int get groupSize => () {
     if (_cachedGroupSize != null) return _cachedGroupSize!;
-    _cachedGroupSize = (config.grouping == null || config.grouping! < 1)
-        ? 1
-        : config.grouping;
+    _cachedGroupSize = (config.grouping == null || config.grouping! < 1) ? 1 : config.grouping;
     return _cachedGroupSize!;
   }();
 
@@ -302,10 +292,7 @@ class Virtual {
     // Calculate the base interval needed for the desired FPS
     _frameInterval = fpsToSleepInterval(refreshRate);
     print("starting virtual loop");
-    _frameTimer = Timer.periodic(
-      Duration(milliseconds: (_frameInterval * 1000).round()),
-      _virtualLoop,
-    );
+    _frameTimer = Timer.periodic(Duration(milliseconds: (_frameInterval * 1000).round()), _virtualLoop);
   }
 
   void deactivate() {
@@ -332,9 +319,7 @@ class Virtual {
       fallbackFire = false;
     }
 
-    if (activeEffect != null &&
-        activeEffect!.isActive &&
-        activeEffect!.pixels != null) {
+    if (activeEffect != null && activeEffect!.isActive && activeEffect!.pixels != null) {
       _assembledFrame = assembleFrame();
       if (_assembledFrame != null && !paused) {
         if (!config.previewOnly) {
@@ -377,9 +362,7 @@ class Virtual {
       final device = ledfx.devices.devices[config.deviceID];
       if (device == null) continue;
       if (!device.isActive) device.activate();
-      device.addSegment(
-        SegmentConfig(id, config.start, config.end, config.inverted),
-      );
+      device.addSegment(SegmentConfig(id, config.start, config.end, config.inverted));
     }
   }
 
@@ -434,14 +417,14 @@ class Virtual {
           // renderCalibration(data, device, segments, deviceID);
         } else if (config.mapping == "span") {
           for (final (start, stop, step, devStart, devEnd) in segments) {
-            final seg = getSlice(pixels!, start, stop, step);
+            final seg = pixels!.slice(start: start, stop: stop, step: step);
             data.add((seg, devStart, devEnd));
           }
         } else if (config.mapping == "copy") {
           for (final (start, stop, step, devStart, devEnd) in segments) {
             final targetPhysicalLen = devEnd - devStart + 1;
             final targetEffectLen = _getEffectivePixelCount(targetPhysicalLen);
-            var seg = getSlice(pixels!, start, stop, step);
+            var seg = pixels!.slice(start: start, stop: stop, step: step);
 
             seg = effectiveToPhysicalPixels(seg, targetPhysicalLen);
             data.add((seg, devStart, devEnd));
@@ -478,23 +461,14 @@ class Virtual {
     frame = frame ?? _assembledFrame;
     if (frame == null) return;
 
-    ledfx.events.fireEvent(
-      VirtualUpdateEvent(id, effectiveToPhysicalPixels(frame)),
-    );
+    ledfx.events.fireEvent(VirtualUpdateEvent(id, effectiveToPhysicalPixels(frame)));
   }
 
-  List<Float64List> effectiveToPhysicalPixels(
-    List<Float64List> effectivePixels, [
-    int? pixelCount,
-  ]) {
+  List<Float64List> effectiveToPhysicalPixels(List<Float64List> effectivePixels, [int? pixelCount]) {
     if (groupSize <= 1) return effectivePixels;
     pixelCount = pixelCount ?? this.pixelCount;
 
-    effectivePixels = repeatAndTruncatePixels(
-      effectivePixels,
-      groupSize,
-      pixelCount,
-    );
+    effectivePixels = repeatAndTruncatePixels(effectivePixels, groupSize, pixelCount);
 
     return effectivePixels;
   }
@@ -540,11 +514,8 @@ class Virtual {
     _activeEffect!.activate(this);
     // TODO:
     // ledfx.events.fireEvent(EffectSetEvent);
-    
-    ledfx.storage?.saveActiveEffect(id, {
-      "type": effect.runtimeType.toString(),
-      "config": effect.config.toJson(),
-    });
+
+    ledfx.storage?.saveActiveEffect(id, {"type": effect.runtimeType.toString(), "config": effect.config.toJson()});
 
     try {
       active = true;

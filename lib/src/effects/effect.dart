@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ledfx/src/core.dart';
-import 'package:ledfx/src/effects/utils.dart';
+import 'package:ledfx/utils/utils.dart';
 import 'package:ledfx/src/virtual.dart';
 
 class EffectConfig {
@@ -76,13 +76,9 @@ abstract class Effect {
   bool _active = false;
   bool get isActive => _active;
 
-  List<Float64List>? _pixels;
-  List<Float64List>? get pixels => _pixels;
-  set pixels(List<Float64List>? pixels) {
-    _pixels = pixels;
-  }
+  List<Float64List>? pixels;
 
-  int get pixelCount => _pixels?.length ?? 0;
+  int get pixelCount => pixels?.length ?? 0;
 
   Virtual? _virtual;
   Virtual? get virtual => _virtual;
@@ -90,7 +86,7 @@ abstract class Effect {
   Effect({required this.ledfx, required this.config});
   void activate(Virtual virtual) {
     _virtual = virtual;
-    _pixels = List.filled(virtual.effectivePixelCount, Float64List(3));
+    pixels = List.filled(virtual.effectivePixelCount, Float64List(3));
 
     if (this is EffectMixin) {
       (this as EffectMixin).onActivate(virtual.effectivePixelCount);
@@ -103,7 +99,7 @@ abstract class Effect {
   }
 
   void deactivate() {
-    _pixels = null;
+    pixels = null;
     _active = false;
   }
 
@@ -111,26 +107,19 @@ abstract class Effect {
 
   List<Float64List>? getPixels() {
     if (virtual == null) return null;
-    List<Float64List> tmpPixels = List.filled(
-      virtual!.effectivePixelCount,
-      Float64List(3),
-    );
+    List<Float64List> tmpPixels = List.filled(virtual!.effectivePixelCount, Float64List(3));
     if (pixels != null) {
-      copyListContents(tmpPixels, pixels!);
+      tmpPixels.copyFromList(pixels!);
       if (config.flip) tmpPixels = tmpPixels.reversed.toList();
 
       if (config.mirror) {
         List<Float64List> reversedPixels = tmpPixels.reversed.toList();
         List<Float64List> mirroredPixels = [...reversedPixels, ...tmpPixels];
         int outputRows = mirroredPixels.length ~/ 2;
-        List<Float64List> finalPixels = List<Float64List>.generate(outputRows, (
-          i,
-        ) {
+        List<Float64List> finalPixels = List<Float64List>.generate(outputRows, (i) {
           // Get the two corresponding rows: one from the even index, one from the odd index
-          Float64List evenRow =
-              mirroredPixels[2 * i]; // mirrored_pixels[::2] element
-          Float64List oddRow =
-              mirroredPixels[2 * i + 1]; // mirrored_pixels[1::2] element
+          Float64List evenRow = mirroredPixels[2 * i]; // mirrored_pixels[::2] element
+          Float64List oddRow = mirroredPixels[2 * i + 1]; // mirrored_pixels[1::2] element
 
           // Create the result row for the maximums
           Float64List maxRow = Float64List(3);
@@ -164,29 +153,25 @@ abstract class Effect {
       // TODO: Blur
 
       if (config.blur != 0 && pixelCount > 3) {
-        final List<double> kernel = gaussianKernel1d(
-          config.blur,
-          0,
-          tmpPixels.length,
-        );
+        final List<double> kernel = gaussianKernel1d(config.blur, 0, tmpPixels.length);
 
         // R channel
         // Python: pixels[:, 0] = np.convolve(pixels[:, 0], kernel, mode="same")
-        List<double> rValues = getColumn(tmpPixels, 0);
+        List<double> rValues = getPixelValueColumn(tmpPixels, 0);
         List<double> blurredR = convolveSame(rValues, kernel);
-        setColumn(tmpPixels, 0, blurredR);
+        setPixelValueColumn(tmpPixels, 0, blurredR);
 
         // G channel (Column 1)
         // Python: pixels[:, 1] = np.convolve(pixels[:, 1], kernel, mode="same")
-        List<double> gValues = getColumn(tmpPixels, 1);
+        List<double> gValues = getPixelValueColumn(tmpPixels, 1);
         List<double> blurredG = convolveSame(gValues, kernel);
-        setColumn(tmpPixels, 1, blurredG);
+        setPixelValueColumn(tmpPixels, 1, blurredG);
 
         // B channel (Column 2)
         // Python: pixels[:, 2] = np.convolve(pixels[:, 2], kernel, mode="same")
-        List<double> bValues = getColumn(tmpPixels, 2);
+        List<double> bValues = getPixelValueColumn(tmpPixels, 2);
         List<double> blurredB = convolveSame(bValues, kernel);
-        setColumn(tmpPixels, 2, blurredB);
+        setPixelValueColumn(tmpPixels, 2, blurredB);
       }
 
       return tmpPixels;
@@ -200,5 +185,17 @@ class Effects {
   final LEDFx ledfx;
   Effects({required this.ledfx}) {
     ledfx.audio = null;
+  }
+}
+
+// A helper function to extract a column (R=0, G=1, B=2)
+List<double> getPixelValueColumn(List<Float64List> pixels, int colIndex) {
+  return pixels.map((row) => row[colIndex]).toList();
+}
+
+// A helper function to update a column with convolved values
+void setPixelValueColumn(List<Float64List> pixels, int colIndex, List<double> newValues) {
+  for (int i = 0; i < pixels.length; i++) {
+    pixels[i][colIndex] = newValues[i];
   }
 }
