@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:isolate';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
@@ -17,7 +18,15 @@ class LEDFxWorker {
   // State we want the UI to have access to
   ValueNotifier<List<Map<String, dynamic>>> devices = ValueNotifier([]);
   ValueNotifier<List<Map<String, dynamic>>> virtuals = ValueNotifier([]);
-  ValueNotifier<List<int>> rgb = ValueNotifier([]);
+  
+  // Per-device RGB notifiers for lower overhead vs streams
+  final Map<String, ValueNotifier<List<int>>> _deviceRgbNotifiers = {};
+  final Map<String, DateTime> _lastUpdate = {};
+  static const _throttleDuration = Duration(milliseconds: 33); // ~30 FPS
+
+  ValueListenable<List<int>> getDeviceRgbNotifier(String deviceID) {
+    return _deviceRgbNotifiers.putIfAbsent(deviceID, () => ValueNotifier<List<int>>([]));
+  }
 
   // Audio state
   ValueNotifier<bool> isAudioCapturing = ValueNotifier(false);
@@ -25,6 +34,7 @@ class LEDFxWorker {
   ValueNotifier<int> activeAudioDeviceIndex = ValueNotifier(0);
 
   Future<void> init() async {
+    _uiReceivePort?.close(); // Close existing port if re-initializing
     _uiReceivePort = ReceivePort();
     IsolateNameServer.removePortNameMapping("ledfx_ui_port");
     IsolateNameServer.registerPortWithName(_uiReceivePort!.sendPort, "ledfx_ui_port");
@@ -85,10 +95,16 @@ class LEDFxWorker {
         }
         break;
       case "visualizer_update":
-        // Efficient format to send Float64Lists back usually involves sending a flat list
+        final deviceID = message["deviceID"];
         final data = message["data"];
-        if (data is List<int>) {
-          rgb.value = data;
+        if (deviceID != null && data is List<int>) {
+          final now = DateTime.now();
+          final last = _lastUpdate[deviceID] ?? DateTime.fromMillisecondsSinceEpoch(0);
+          
+          if (now.difference(last) >= _throttleDuration) {
+            _lastUpdate[deviceID] = now;
+            _deviceRgbNotifiers[deviceID]?.value = data;
+          }
         }
         break;
       case "audio_state":
@@ -109,6 +125,9 @@ class LEDFxWorker {
 
   void removeDevice(String deviceId) {
     send({"cmd": "remove_device", "deviceId": deviceId});
+    _deviceRgbNotifiers[deviceId]?.dispose();
+    _deviceRgbNotifiers.remove(deviceId);
+    _lastUpdate.remove(deviceId);
   }
 
   void setVirtualActive(String virtualId, bool active) {
@@ -151,5 +170,10 @@ class LEDFxWorker {
   void dispose() {
     IsolateNameServer.removePortNameMapping("ledfx_ui_port");
     _uiReceivePort?.close();
+    for (final notifier in _deviceRgbNotifiers.values) {
+      notifier.dispose();
+    }
+    _deviceRgbNotifiers.clear();
+    _lastUpdate.clear();
   }
 }

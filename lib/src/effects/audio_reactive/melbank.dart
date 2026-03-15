@@ -115,6 +115,12 @@ class Melbanks {
       }
     }
   }
+
+  void dispose() {
+    for (final proc in melbankProcessors) {
+      proc.dispose();
+    }
+  }
 }
 
 // A single Melbank
@@ -204,6 +210,10 @@ class Melbank {
     });
     List<double> diffFiltered = diffFilter.update(differenceArray);
     filteredMelbank.copyFromList(diffFiltered);
+  }
+
+  void dispose() {
+    filterBank.delete();
   }
 }
 

@@ -20,6 +20,7 @@ class HomeBody extends StatefulWidget {
 
 class _HomeBodyState extends State<HomeBody> {
   final LEDFxWorker ledfxWorker = LEDFxWorker.instance;
+  final Map<String, bool> _expandedStates = {};
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +31,7 @@ class _HomeBodyState extends State<HomeBody> {
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               ElevatedButton.icon(onPressed: _addDeviceForm, label: Text("Add Device"), icon: Icon(Icons.add)),
               ElevatedButton.icon(
@@ -68,109 +70,150 @@ class _HomeBodyState extends State<HomeBody> {
               ),
             ],
           ),
-          SizedBox(
-            height: 50,
-            child: ValueListenableBuilder<List<int>>(
-              valueListenable: ledfxWorker.rgb,
-              builder: (BuildContext context, List<int> value, Widget? child) {
-                return CustomPaint(
-                  painter: VisualizerPainter(rgb: value, ledCount: 300),
-                  size: const Size(double.infinity, 50),
-                );
-              },
-            ),
-          ),
-
           ValueListenableBuilder<List<Map<String, dynamic>>>(
             valueListenable: ledfxWorker.virtuals,
             builder: (context, virtuals, child) {
-              return ListView(
+              return ListView.separated(
                 shrinkWrap: true,
-                children: virtuals.map((v) {
+                separatorBuilder: (context, index) => SizedBox(height: 8),
+                itemCount: virtuals.length,
+                itemBuilder: (context, index) {
+                  final v = virtuals[index];
                   final configMap = v["config"] as Map<String, dynamic>;
-                  return ListTile(
-                    title: Text(configMap["name"] ?? "Virtual Device"),
-                    subtitle: Row(
+                  return ExpansionTile(
+                    key: ValueKey(v["id"]),
+                    maintainState: true,
+                    dense: true,
+                    childrenPadding: EdgeInsets.zero,
+                    collapsedShape: RoundedRectangleBorder(
+                      side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      side: BorderSide(color: Colors.grey.withValues(alpha: 0.5)),
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                    title: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      mainAxisSize: MainAxisSize.max,
                       children: [
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 8.0),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("ID: ${configMap["deviceID"]}"),
-                                Text("virtual ID: ${v["id"]}"),
-                                Text(
-                                  "Active Effect: ${v["activeEffect"] != null ? v["activeEffect"]["name"] : 'None'}",
-                                ),
-                                Switch(
-                                  value: v["active"] ?? false,
-                                  onChanged: (bool newVal) {
-                                    ledfxWorker.setVirtualActive(v["id"], newVal);
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            mainAxisSize: MainAxisSize.min,
+                        RichText(
+                          text: TextSpan(
+                            text: "${configMap["name"] ?? "Virtual Device"}",
                             children: [
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  ledfxWorker.setEffect(
-                                    v["id"],
-                                    EffectConfig(name: "wavelength", mirror: true, blur: 3.0),
-                                  );
-                                },
-                                label: Text("Add Effect"),
-                                icon: Icon(Icons.add),
-                              ),
-                              SizedBox(height: 4),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      return AlertDialog(
-                                        title: Text("Remove Device"),
-                                        content: Text("Are you sure you want to remove this device?"),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () {
-                                              Navigator.pop(context);
-                                            },
-                                            child: Text("Cancel"),
-                                          ),
-                                          TextButton(
-                                            onPressed: () {
-                                              ledfxWorker.removeDevice(configMap["deviceID"]);
-                                              Navigator.pop(context);
-                                            },
-                                            child: Text("Remove"),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                },
-                                label: Text("Remove Device"),
-                                icon: Icon(Icons.delete, color: Colors.red),
+                              TextSpan(
+                                text: "     ID: ${configMap["deviceID"]}",
+                                style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic),
                               ),
                             ],
                           ),
                         ),
+                        IconButton(
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: Text("Remove Device"),
+                                  content: Text("Are you sure you want to remove this device?"),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                      },
+                                      child: Text("Cancel"),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        ledfxWorker.removeDevice(configMap["deviceID"]);
+                                        Navigator.pop(context);
+                                      },
+                                      child: Text("Remove"),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                          icon: Icon(Icons.delete, color: Colors.red),
+                        ),
                       ],
                     ),
+                    onExpansionChanged: (expanded) {
+                      setState(() {
+                        _expandedStates[v["id"]] = expanded;
+                      });
+                    },
+                    children: [
+                      // VISUALIZER STRIP
+                      if (_expandedStates[v["id"]] ?? false)
+                        SizedBox(
+                          height: 10,
+                          child: ValueListenableBuilder<List<int>>(
+                            valueListenable: ledfxWorker.getDeviceRgbNotifier(v["deviceID"]),
+                            builder: (BuildContext context, List<int> data, Widget? child) {
+                              if (data.isEmpty) return const SizedBox.shrink();
+                              return CustomPaint(
+                                painter: VisualizerPainter(rgb: data, ledCount: 300),
+                                size: const Size(double.infinity, 50),
+                              );
+                            },
+                          ),
+                        ),
+                      // CONTROLS
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisSize: MainAxisSize.max,
+                          children: [
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 8.0),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text("virtual ID: ${v["id"]}"),
+                                    Text(
+                                      "Active Effect: ${v["activeEffect"] != null ? v["activeEffect"]["name"] : 'None'}",
+                                    ),
+                                    Switch(
+                                      value: v["active"] ?? false,
+                                      onChanged: (bool newVal) {
+                                        ledfxWorker.setVirtualActive(v["id"], newVal);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      ledfxWorker.setEffect(
+                                        v["id"],
+                                        EffectConfig(name: "wavelength", mirror: true, blur: 3.0),
+                                      );
+                                    },
+                                    label: Text("Add Effect"),
+                                    icon: Icon(Icons.add),
+                                  ),
+                                  SizedBox(height: 4),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   );
-                }).toList(),
+                },
               );
             },
           ),

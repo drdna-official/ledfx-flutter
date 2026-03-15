@@ -23,8 +23,9 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   @override
-  void initState() {
-    super.initState();
+  void dispose() {
+    LEDFxWorker.instance.dispose();
+    super.dispose();
   }
 
   @override

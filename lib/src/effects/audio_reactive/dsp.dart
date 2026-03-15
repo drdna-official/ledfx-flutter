@@ -7,8 +7,7 @@ class Complex {
   const Complex(this.re, this.im);
   Complex operator +(Complex o) => Complex(re + o.re, im + o.im);
   Complex operator -(Complex o) => Complex(re - o.re, im - o.im);
-  Complex operator *(Complex o) =>
-      Complex(re * o.re - im * o.im, re * o.im + im * o.re);
+  Complex operator *(Complex o) => Complex(re * o.re - im * o.im, re * o.im + im * o.re);
   double get magnitude => sqrt(re * re + im * im);
   double get phase => atan2(im, re);
 }
@@ -18,9 +17,7 @@ class Cvec {
   final List<double> norm; // magnitudes
   final List<double> phas; // phases
   final int length;
-  Cvec(this.length)
-    : norm = List.filled(length, 0.0),
-      phas = List.filled(length, 0.0);
+  Cvec(this.length) : norm = List.filled(length, 0.0), phas = List.filled(length, 0.0);
   void fromSpectrum(List<Complex> spectrum) {
     for (int i = 0; i < length; i++) {
       norm[i] = spectrum[i].magnitude;
@@ -35,8 +32,7 @@ class Filterbank {
   final int fftSize;
   List<List<double>> coeffs;
 
-  Filterbank(this.nBands, this.fftSize)
-    : coeffs = List.generate(nBands, (_) => List.filled(fftSize ~/ 2 + 1, 0.0));
+  Filterbank(this.nBands, this.fftSize) : coeffs = List.generate(nBands, (_) => List.filled(fftSize ~/ 2 + 1, 0.0));
 
   /// Triangular mel-style bands
   void setTriangleBands(Float64List freqs, int sampleRate) {
@@ -84,8 +80,7 @@ class Filterbank {
 
 /// Window functions
 class Window {
-  static List<double> hann(int n) =>
-      List.generate(n, (i) => 0.5 * (1 - cos(2 * pi * i / (n - 1))));
+  static List<double> hann(int n) => List.generate(n, (i) => 0.5 * (1 - cos(2 * pi * i / (n - 1))));
 }
 
 /// FFT (recursive radix-2)
@@ -100,8 +95,7 @@ class FFTUtils {
     var fftOdd = fft(odd);
     var spectrum = List<Complex>.filled(n, Complex(0, 0));
     for (int k = 0; k < n ~/ 2; k++) {
-      var twiddle =
-          Complex(cos(-2 * pi * k / n), sin(-2 * pi * k / n)) * fftOdd[k];
+      var twiddle = Complex(cos(-2 * pi * k / n), sin(-2 * pi * k / n)) * fftOdd[k];
       spectrum[k] = fftEven[k] + twiddle;
       spectrum[k + n ~/ 2] = fftEven[k] - twiddle;
     }
@@ -149,18 +143,10 @@ class Biquad {
 class DigitalFilter {
   final List<Biquad> stages;
 
-  DigitalFilter(int order)
-    : stages = List.generate(order, (_) => Biquad(1, 0, 0, 0, 0));
+  DigitalFilter(int order) : stages = List.generate(order, (_) => Biquad(1, 0, 0, 0, 0));
 
   /// Configure a specific stage (like aubio.set_biquad)
-  void setBiquad(
-    int stage,
-    double b0,
-    double b1,
-    double b2,
-    double a1,
-    double a2,
-  ) {
+  void setBiquad(int stage, double b0, double b1, double b2, double a1, double a2) {
     if (stage < 0 || stage >= stages.length) {
       throw ArgumentError("Stage out of range");
     }
@@ -215,9 +201,7 @@ class AudioDSP {
   /// Phase vocoder frame -> cvec
   Cvec pvoc(Float64List frame) {
     if (frame.length != hopSize) {
-      throw Exception(
-        "Input frame size must equal the declared hopSize ($hopSize)",
-      );
+      throw Exception("Input frame size must equal the declared hopSize ($hopSize)");
     }
     _buffer.setAll(0, _buffer.sublist(hopSize));
     final int samplesToKeep = fftSize - hopSize;
@@ -267,8 +251,7 @@ class AudioDSP {
     return (pitchUnit == PitchUnit.midi) ? hzToMidi(freq) : freq;
   }
 
-  static double hzToMidi(double hz) =>
-      (hz > 0) ? 69 + 12 * log(hz / 440.0) / ln2 : 0.0;
+  static double hzToMidi(double hz) => (hz > 0) ? 69 + 12 * log(hz / 440.0) / ln2 : 0.0;
 
   /// Onset detection (spectral flux)
   bool detectOnset(Cvec cvec) {

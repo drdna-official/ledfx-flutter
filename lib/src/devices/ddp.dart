@@ -3,7 +3,6 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/devices/udp.dart';
@@ -62,11 +61,6 @@ class DDPDevice extends UDPDevice {
     required int frameCount,
   }) {
     final int sequence = frameCount % 15 + 1;
-
-    final uiPort = IsolateNameServer.lookupPortByName("ledfx_ui_port");
-    if (uiPort != null) {
-      uiPort.send({"event": "visualizer_update", "data": byteData});
-    }
 
     // 3. packets, remainder = divmod(len(byteData), DDPDevice.MAX_DATALEN)
     final int dataLength = byteData.length;

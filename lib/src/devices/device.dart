@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:ledfx/background.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/src/devices/dummy.dart';
 import 'package:ledfx/src/devices/wled.dart';
@@ -368,6 +369,7 @@ abstract class Device {
         final frame = assembleFrame();
         if (frame == null) return;
         flush(frame);
+        sendAudioDataToUI(id, frame);
         ledfx.events.fireEvent(DeviceUpdateEvent(id, frame));
       }
     }

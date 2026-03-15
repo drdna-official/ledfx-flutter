@@ -111,6 +111,35 @@ class Aubio {
     return fftGrain; // Caller must free this
   }
 
+  /// Helper to copy between two native fvec_t buffers
+  static void copyFvec(Pointer<fvec_t> src, Pointer<fvec_t> dst, int length) {
+    final srcData = bindings.fvec_get_data(src);
+    final dstData = bindings.fvec_get_data(dst);
+    for (int i = 0; i < length; i++) {
+      dstData[i] = srcData[i];
+    }
+  }
+
+  /// Helper to zero a native fvec_t
+  static void zeroFvec(Pointer<fvec_t> vec) {
+    bindings.fvec_zeros(vec);
+  }
+
+  /// Helper to copy Float64List into an existing fvec_t
+  static void copyToFvec(Float64List data, Pointer<fvec_t> vec) {
+    final ptr = bindings.fvec_get_data(vec);
+    for (int i = 0; i < data.length; i++) {
+      ptr[i] = data[i];
+    }
+  }
+
+  static void copyFromFvec(Pointer<fvec_t> vec, Float64List data) {
+    final ptr = bindings.fvec_get_data(vec);
+    for (int i = 0; i < data.length; i++) {
+      data[i] = ptr[i];
+    }
+  }
+
   // Phase vocoder synthesis (frequency -> time domain)
   static Float64List phaseVocoderSynthesis(Pointer<aubio_pvoc_t> pvoc, Pointer<cvec_t> fftGrain, int hopSize) {
     final outputVec = bindings.new_fvec(hopSize);
@@ -318,6 +347,11 @@ extension PhaseVocoderExt on Pointer<aubio_pvoc_t> {
     return fftGrain; // Caller must free this
   }
 
+  /// Phase vocoder analysis using existing buffers (recommended for performance)
+  void doAnalyse(Pointer<fvec_t> input, Pointer<cvec_t> output) {
+    Aubio.bindings.aubio_pvoc_do(cast(), input, output);
+  }
+
   // Phase vocoder synthesis (frequency -> time domain)
   Float64List synthesise(Pointer<cvec_t> fftGrain, int hopSize) {
     final outputVec = Aubio.bindings.new_fvec(hopSize);
@@ -379,6 +413,11 @@ extension FilterbankExt on Pointer<aubio_filterbank_t> {
     Aubio.bindings.del_fvec(outVec);
     return out;
   }
+
+  /// Mel-filterbank processing using existing buffer
+  void doProcess(Pointer<cvec_t> freqDomain, Pointer<fvec_t> outVec) {
+    Aubio.bindings.aubio_filterbank_do(cast(), freqDomain, outVec);
+  }
 }
 
 extension ResamplerExt on Pointer<aubio_resampler_t> {
@@ -411,5 +450,10 @@ extension ResamplerExt on Pointer<aubio_resampler_t> {
     Aubio.bindings.del_fvec(outVec);
 
     return outputFrame;
+  }
+
+  /// Resample using existing buffers
+  void doResample(Pointer<fvec_t> input, Pointer<fvec_t> output) {
+    Aubio.bindings.aubio_resampler_do(cast(), input, output);
   }
 }

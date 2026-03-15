@@ -41,7 +41,9 @@ abstract class AudioInputSource {
   Timer? _timer;
   int _subscriberThreshould = 0;
 
-  late Pointer<cvec_t> _freqDomainNull;
+  // Native Buffers
+  late Pointer<fvec_t> _inputVec;
+  late Pointer<fvec_t> _processedVec;
   late Pointer<cvec_t> _freqDomain;
   Pointer<cvec_t> get freqDomain => _freqDomain;
 
@@ -117,8 +119,12 @@ abstract class AudioInputSource {
 
     phaseVocoder = Aubio.createPhaseVocoder(FFT_SIZE, MIC_RATE ~/ sampleRate);
 
-    _freqDomainNull = Aubio.createComplexVector(FFT_SIZE);
-    _freqDomain = _freqDomainNull;
+    _inputVec = Aubio.bindings.new_fvec(MIC_RATE ~/ sampleRate);
+    _processedVec = Aubio.bindings.new_fvec(MIC_RATE ~/ sampleRate);
+    _freqDomain = Aubio.createComplexVector(FFT_SIZE);
+
+    _rawAudioSample = Float64List(MIC_RATE ~/ sampleRate);
+    _processedAudioSample = Float64List(MIC_RATE ~/ sampleRate);
 
     final samplesToDelay = (0.001 * delay.inMilliseconds * sampleRate).toInt();
     if (samplesToDelay > 0) {
@@ -134,10 +140,14 @@ abstract class AudioInputSource {
     _audioStreamActive = false;
 
     // Clear Pointers
+    // Clean Pointers
     preEmphasis.delete();
     phaseVocoder.delete();
     if (resampler != null) resampler!.delete();
     resampler = null;
+
+    Aubio.bindings.del_fvec(_inputVec);
+    Aubio.bindings.del_fvec(_processedVec);
     _freqDomain.delete();
   }
 
@@ -297,12 +307,23 @@ abstract class AudioInputSource {
     // force all zeros when below the volume threshold
     if ((_volumeFilter.value as double) > minVolume) {
       _processedAudioSample = _rawAudioSample;
-      // pre-emphasis
-      _processedAudioSample = preEmphasis.processAudioFrame(_rawAudioSample) ?? _rawAudioSample;
-      //Pass into the phase vocoder to get a windowed FFT
-      _freqDomain = phaseVocoder.analyse(_processedAudioSample);
+
+      // Copy to native input buffer
+      Aubio.copyToFvec(_rawAudioSample, _inputVec);
+
+      if (preEmphasis != nullptr) {
+        // Pre-emphasis filter
+        Aubio.bindings.aubio_filter_do_outplace(preEmphasis.cast(), _inputVec, _processedVec);
+        Aubio.copyFromFvec(_processedVec, _processedAudioSample);
+
+        // Pass into the phase vocoder to get a windowed FFT
+        phaseVocoder.doAnalyse(_processedVec, _freqDomain);
+      } else {
+        // Pass into the phase vocoder to get a windowed FFT
+        phaseVocoder.doAnalyse(_inputVec, _freqDomain);
+      }
     } else {
-      _freqDomain = _freqDomainNull;
+      Aubio.bindings.cvec_zeros(_freqDomain);
     }
   }
 }
@@ -364,9 +385,7 @@ class AudioAnalysisSource extends AudioInputSource {
   void deactivate() {
     super.deactivate();
     // Clean Pointers
-    for (var m in melbanks.melbankProcessors) {
-      m.filterBank.delete();
-    }
+    melbanks.dispose();
   }
 
   void initialiseAnalysis() {
