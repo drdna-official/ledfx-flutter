@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:isolate';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
-import 'package:ledfx/src/devices/device.dart';
 import 'package:ledfx/src/effects/effect.dart';
 import 'package:ledfx/platform_interface/audio_bridge.dart';
 
@@ -18,7 +17,7 @@ class LEDFxWorker {
   // State we want the UI to have access to
   ValueNotifier<List<Map<String, dynamic>>> devices = ValueNotifier([]);
   ValueNotifier<List<Map<String, dynamic>>> virtuals = ValueNotifier([]);
-  
+
   // Per-device RGB notifiers for lower overhead vs streams
   final Map<String, ValueNotifier<List<int>>> _deviceRgbNotifiers = {};
   final Map<String, DateTime> _lastUpdate = {};
@@ -32,6 +31,10 @@ class LEDFxWorker {
   ValueNotifier<bool> isAudioCapturing = ValueNotifier(false);
   ValueNotifier<List<AudioDevice>> audioDevices = ValueNotifier([]);
   ValueNotifier<int> activeAudioDeviceIndex = ValueNotifier(0);
+
+  // Info state
+  StreamController<String> infoStreamController = StreamController<String>.broadcast();
+  Stream<String> get infoStream => infoStreamController.stream;
 
   Future<void> init() async {
     _uiReceivePort?.close(); // Close existing port if re-initializing
@@ -100,7 +103,6 @@ class LEDFxWorker {
         if (deviceID != null && data is List<int>) {
           final now = DateTime.now();
           final last = _lastUpdate[deviceID] ?? DateTime.fromMillisecondsSinceEpoch(0);
-          
           if (now.difference(last) >= _throttleDuration) {
             _lastUpdate[deviceID] = now;
             _deviceRgbNotifiers[deviceID]?.value = data;
@@ -109,6 +111,9 @@ class LEDFxWorker {
         break;
       case "audio_state":
         isAudioCapturing.value = message["isCapturing"] ?? false;
+        break;
+      case "info":
+        infoStreamController.add(message["info"]["message"]);
         break;
     }
   }
@@ -119,8 +124,11 @@ class LEDFxWorker {
     send({"cmd": "request_state"});
   }
 
-  void addDevice(DeviceConfig config) {
-    send({"cmd": "add_device", "payload": config.toJson()});
+  void addDevice(String name, String type, String address) {
+    send({
+      "cmd": "add_device",
+      "payload": {"type": type, "name": name, "address": address},
+    });
   }
 
   void removeDevice(String deviceId) {
@@ -130,7 +138,7 @@ class LEDFxWorker {
     _lastUpdate.remove(deviceId);
   }
 
-  void setVirtualActive(String virtualId, bool active) {
+  void toggleVirtual(String virtualId, bool active) {
     send({"cmd": "set_virtual_active", "virtualId": virtualId, "active": active});
   }
 

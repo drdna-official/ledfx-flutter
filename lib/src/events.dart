@@ -2,7 +2,7 @@
 
 import 'dart:typed_data';
 
-import 'package:flutter/painting.dart';
+import 'package:flutter/material.dart';
 import 'package:ledfx/src/core.dart';
 
 sealed class LEDFxEvent {
@@ -13,6 +13,9 @@ sealed class LEDFxEvent {
   static const VIRTUAL_UPDATE = 'virtual_update';
   static const VIRTUAL_PAUSED = 'virtual_paused';
   static const VISUALISATION_UPDATE = "visualisation_update";
+  static const BASE_CONFIG_UPDATE = "base_config_update";
+  static const VIRTUAL_CONFIG_UPDATE = "virtual_config_update";
+  static const EFFECT_CLEARED = "effect_cleared";
 
   final String eventType;
   const LEDFxEvent(this.eventType);
@@ -65,6 +68,7 @@ class LEDFxEvents {
     } else {
       _listeners[eventType] = [listener];
     }
+    debugPrint("Listener added for event type: $eventType");
 
     void removeListener() {
       _removeListener(eventType, listener);
@@ -78,6 +82,15 @@ class LEDFxEvents {
       _listeners[eventType]!.remove(listener);
       if (_listeners[eventType]!.isEmpty) _listeners.remove(eventType);
     }
+  }
+}
+
+class LEDFxShutdownEvent extends LEDFxEvent {
+  const LEDFxShutdownEvent() : super(LEDFxEvent.CORE_SHUTDOWN);
+
+  @override
+  Map<String, dynamic> toMap() {
+    return {"eventType": eventType};
   }
 }
 
@@ -142,5 +155,37 @@ class VisualisationUpdateEvent extends LEDFxEvent {
   @override
   Map<String, dynamic> toMap() {
     return {"eventType": eventType, "visID": visID, "pixels": pixels, "shape": shape, "isDevice": isDevice};
+  }
+}
+
+class BaseConfigUpdateEvent extends LEDFxEvent {
+  final Map<String, dynamic> config;
+
+  BaseConfigUpdateEvent(this.config) : super(LEDFxEvent.BASE_CONFIG_UPDATE);
+
+  @override
+  Map<String, dynamic> toMap() {
+    return {"eventType": eventType, "config": config};
+  }
+}
+
+class VirtualConfigUpdateEvent extends LEDFxEvent {
+  final String virtualID;
+  final Map<String, dynamic> config;
+
+  VirtualConfigUpdateEvent(this.virtualID, this.config) : super(LEDFxEvent.VIRTUAL_CONFIG_UPDATE);
+
+  @override
+  Map<String, dynamic> toMap() {
+    return {"eventType": eventType, "virtualID": virtualID, "config": config};
+  }
+}
+
+class EffectClearedEvent extends LEDFxEvent {
+  const EffectClearedEvent() : super(LEDFxEvent.EFFECT_CLEARED);
+
+  @override
+  Map<String, dynamic> toMap() {
+    return {"eventType": eventType};
   }
 }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:ledfx/src/devices/device.dart';
 import 'package:ledfx/src/effects/effect.dart';
 import 'package:ledfx/worker.dart';
 import 'package:ledfx/ui/visualizer/visualizer_painter.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:async';
 
 Future<bool> requestNotificationPermission() async {
   if (await Permission.notification.isGranted) return true;
@@ -21,9 +21,23 @@ class HomeBody extends StatefulWidget {
 class _HomeBodyState extends State<HomeBody> {
   final LEDFxWorker ledfxWorker = LEDFxWorker.instance;
   final Map<String, bool> _expandedStates = {};
+  late StreamSubscription<String> _infoSubscription;
+
+  @override
+  void dispose() {
+    _infoSubscription.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    _infoSubscription = ledfxWorker.infoStream.listen((info) {
+      if (mounted) {
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(info)));
+      }
+    });
+
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Column(
@@ -181,7 +195,7 @@ class _HomeBodyState extends State<HomeBody> {
                                     Switch(
                                       value: v["active"] ?? false,
                                       onChanged: (bool newVal) {
-                                        ledfxWorker.setVirtualActive(v["id"], newVal);
+                                        ledfxWorker.toggleVirtual(v["id"], newVal);
                                       },
                                     ),
                                   ],
@@ -227,6 +241,7 @@ class _HomeBodyState extends State<HomeBody> {
 
   // The maximum desired width for the dialogue card on large screens
   static const double _cardMaxWidth = 500.0;
+  final TextEditingController _name = TextEditingController(text: "");
   final TextEditingController _address = TextEditingController(text: "192.168.0.170");
   final TextEditingController _type = TextEditingController(text: "wled");
   void _addDeviceForm() {
@@ -275,8 +290,24 @@ class _HomeBodyState extends State<HomeBody> {
                         controller: _address,
                         decoration: const InputDecoration(labelText: 'Address', border: OutlineInputBorder()),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (_type.text != "dummy" && (value == null || value.isEmpty)) {
                             return 'Please enter a address';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 15),
+                      // Address Field
+                      TextFormField(
+                        controller: _name,
+                        decoration: const InputDecoration(
+                          labelText: 'Name',
+                          border: OutlineInputBorder(),
+                          hint: Text("My Device"),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a name';
                           }
                           return null;
                         },
@@ -288,24 +319,7 @@ class _HomeBodyState extends State<HomeBody> {
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
                             try {
-                              final config = (_type.text == "wled")
-                                  ? DeviceConfig(
-                                      pixelCount: 200,
-                                      rgbwLED: false,
-                                      name: "WLED Test",
-                                      type: _type.text,
-                                      address: _address.text,
-                                    )
-                                  : DeviceConfig(
-                                      pixelCount: 300,
-                                      rgbwLED: false,
-                                      name: "Dummy",
-                                      type: _type.text,
-                                      address: _address.text,
-                                    );
-
-                              ledfxWorker.addDevice(config);
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Added New Device")));
+                              ledfxWorker.addDevice(_name.text, _type.text, _address.text);
                               Navigator.of(context).pop();
                             } catch (e) {
                               ScaffoldMessenger.of(

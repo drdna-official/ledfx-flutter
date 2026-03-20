@@ -4,7 +4,6 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:ledfx/src/core.dart';
-import 'package:ledfx/src/devices/device.dart';
 import 'package:ledfx/src/effects/effect.dart';
 import 'package:ledfx/src/effects/effects/wavelength.dart';
 import 'package:ledfx/platform_interface/audio_bridge.dart';
@@ -45,10 +44,11 @@ void backgroundAudioProcessing() async {
             break;
           case "add_device":
             try {
-              final config = DeviceConfig.fromJson(message["payload"]);
-              await ledfx.devices.addNewDevice(config);
+              final payload = message["payload"];
+              await ledfx.devices.addNewDevice(payload["type"], payload["name"], payload["address"]);
+              _sendInfoToUI("Device added successfully");
             } catch (e) {
-              debugPrint("Failed to add device: ${e.toString()}");
+              _sendInfoToUI("Failed to add device: ${e.toString()}");
             } finally {
               _sendStateToUI(ledfx);
             }
@@ -86,15 +86,7 @@ void backgroundAudioProcessing() async {
             try {
               final vId = message["virtualId"];
               final bool active = message["active"];
-              final virtual = ledfx.virtuals.virtuals[vId];
-              if (virtual != null) {
-                active ? virtual.activate() : virtual.deactivate();
-                final configIndex = ledfx.config.virtuals.indexWhere((v) => v["id"] == vId);
-                if (configIndex != -1) {
-                  ledfx.config.virtuals[configIndex]["active"] = active;
-                  ledfx.storage?.saveVirtuals(ledfx.config.virtuals);
-                }
-              }
+              ledfx.toggleVirtual(vId, active);
             } catch (e) {
               debugPrint("Failed: ${e.toString()}");
             } finally {
@@ -161,6 +153,16 @@ void _sendStateToUI(LEDFx ledfx) {
           };
         }).toList(),
       },
+    });
+  }
+}
+
+void _sendInfoToUI(String message) {
+  final uiPort = IsolateNameServer.lookupPortByName("ledfx_ui_port");
+  if (uiPort != null) {
+    uiPort.send({
+      "event": "info",
+      "info": {"message": message},
     });
   }
 }

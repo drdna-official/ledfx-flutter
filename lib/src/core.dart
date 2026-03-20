@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/devices/device.dart';
 import 'package:ledfx/src/effects/audio_reactive/audio.dart';
 import 'package:ledfx/src/effects/effect.dart';
-import 'package:ledfx/src/effects/effects/wavelength.dart';
 import 'package:ledfx/src/effects/audio_reactive/melbank.dart';
 import 'package:ledfx/src/events.dart';
 import 'package:ledfx/src/virtual.dart';
@@ -28,6 +27,18 @@ class LEDFxConfig {
     this.transmissionMode = Transmission.uncompressed,
     this.flushOnDeactivate = false,
   });
+
+  Future<void> loadFromStorage(Storage storage) async {
+    await storage.init();
+    final loadedDevices = await storage.loadDevices();
+    if (loadedDevices != null && loadedDevices.isNotEmpty) {
+      devices = loadedDevices;
+    }
+    final loadedVirtuals = await storage.loadVirtuals();
+    if (loadedVirtuals != null && loadedVirtuals.isNotEmpty) {
+      virtuals = loadedVirtuals;
+    }
+  }
 }
 
 class LEDFx {
@@ -45,6 +56,11 @@ class LEDFx {
 
   LEDFx({required this.config, this.storage}) {
     events = LEDFxEvents(this);
+    // setupVisualisationEvents();
+    events.addListener(handleBaseConfigUpdate, LEDFxEvent.BASE_CONFIG_UPDATE);
+  }
+  void handleBaseConfigUpdate(LEDFxEvent event) {
+    // Handle specific updates -- setup visualisation events fresh
     // setupVisualisationEvents();
   }
 
@@ -118,76 +134,94 @@ class LEDFx {
     effects = Effects(ledfx: this);
     virtuals = Virtuals(ledfx: this);
 
-    if (storage != null) {
-      await storage!.init();
-      final loadedDevices = await storage!.loadDevices();
-      if (loadedDevices != null && loadedDevices.isNotEmpty) {
-        config.devices = loadedDevices;
-      }
-      final loadedVirtuals = await storage!.loadVirtuals();
-      if (loadedVirtuals != null && loadedVirtuals.isNotEmpty) {
-        config.virtuals = loadedVirtuals;
-      }
-    }
+    if (storage != null) await config.loadFromStorage(storage!);
 
+    // Ensure to start with fresh virtual registry when
+    // Reusing virtuals singleton across core lifecycle
     virtuals.resetForCore(this);
 
     // Initialize Devices
-    if (config.devices.isNotEmpty) {
-      for (final deviceData in config.devices) {
-        final deviceId = deviceData['id'];
-        final deviceType = deviceData['type'];
-        final configMap = deviceData['config'] as Map<String, dynamic>;
-        final deviceConfig = DeviceConfig.fromJson(configMap);
-
-        final device = devices.create(deviceId, deviceType, deviceConfig, this);
-        if (device is AsyncInitDevice) {
-          await (device as AsyncInitDevice).initialize();
-        }
-        await device.postamble();
-      }
-    }
+    devices.createFromConfig(config.devices);
+    await devices.initialiseDevices();
 
     // Initialize Virtuals
-    if (config.virtuals.isNotEmpty) {
-      for (final virtualData in config.virtuals) {
-        final virtualId = virtualData['id'];
-        final configMap = virtualData['config'] as Map<String, dynamic>;
-        final virtualConfig = VirtualConfig.fromJson(configMap);
-        final virtual = virtuals.create(virtualId, virtualConfig);
+    virtuals.createFromConfig(config.virtuals, pauseAll);
 
-        final segmentsList = virtualData['segments'] as List<dynamic>;
-        final segments = segmentsList.map((s) => SegmentConfig.fromJson(s as Map<String, dynamic>)).toList();
-        virtual.updateSegments(segments);
-        virtual.virtualConfig = virtualData;
-
-        if (storage != null) {
-          final effectData = await storage!.loadActiveEffect(virtualId);
-          if (effectData != null) {
-            final effectType = effectData['type'];
-            final effectConfigMap = effectData['config'] as Map<String, dynamic>;
-            final effectConfig = EffectConfig.fromJson(effectConfigMap);
-
-            Effect? effect;
-            if (effectType == 'WavelengthEffect') {
-              effect = WavelengthEffect(ledfx: this, config: effectConfig);
-            }
-            // Add other effects here as they are implemented
-
-            if (effect != null) {
-              virtual.setEffect(effect);
-              if (virtualData["active"] == false) {
-                virtual.active = false;
-              }
-            }
-          }
-        }
-      }
-    }
     if (pauseAll) virtuals.pauseAll();
+
+    debugPrint(events.toString());
   }
 
   Future<void> stop([int exitCode = 0]) async {
     debugPrint("stopping ...");
+    events.fireEvent(LEDFxShutdownEvent());
+    // TODO: Save Config before shutdown
+  }
+
+  // -- Devices --
+
+  Future<void> addDevice(String type, String name, String address) async {
+    devices.addNewDevice(type, name, address);
+
+    storage?.saveDevices(config.devices);
+    storage?.saveVirtuals(config.virtuals);
+  }
+
+  // Remove Device
+  Future<void> removeDevice(String deviceID) async {
+    final device = devices.get(deviceID);
+    if (device == null) {
+      debugPrint("Device not found: $deviceID");
+      return;
+    }
+    device.deactivate();
+    devices.destroyDevice(deviceID);
+    config.devices.removeWhere((v) => v["id"] == deviceID);
+    await storage?.saveDevices(config.devices);
+  }
+
+  // -- Virtuals --
+  // Update This Virtual's Segments
+  Future<void> updateVirtual(String virtualID, List<SegmentConfig> segments) async {
+    final virtual = virtuals.get(virtualID);
+    if (virtual == null) {
+      debugPrint("Virtual not found: $virtualID");
+      return;
+    }
+    virtual.updateSegments(segments);
+    await storage?.saveVirtuals(config.virtuals);
+  }
+
+  // Activate-Deactivate Virtual
+  Future<void> toggleVirtual(String virtualID, bool active) async {
+    final virtual = virtuals.get(virtualID);
+    if (virtual == null) {
+      debugPrint("Virtual not found: $virtualID");
+      return;
+    }
+    virtual.active = active;
+    virtual.virtualData["active"] = virtual.active;
+    await storage?.saveVirtuals(config.virtuals);
+  }
+
+  // Remove Virtual
+  Future<void> removeVirtual(String virtualID) async {
+    final virtual = virtuals.get(virtualID);
+    if (virtual == null) {
+      debugPrint("Virtual not found: $virtualID");
+      return;
+    }
+    virtual.clearEffect();
+    final deviceID = virtual.deviceID;
+    final device = devices.get(deviceID);
+    if (device != null) {
+      await device.removeFromVirtual(virtualID);
+      devices.destroyDevice(deviceID);
+      config.devices.removeWhere((v) => v["id"] == deviceID);
+    }
+
+    virtuals.destroyVirtual(virtualID);
+    config.virtuals.removeWhere((v) => v["id"] == virtualID);
+    await storage?.saveVirtuals(config.virtuals);
   }
 }

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ledfx/src/core.dart';
+import 'package:ledfx/src/effects/effects/wavelength.dart';
 import 'package:ledfx/utils/utils.dart';
 import 'package:ledfx/src/virtual.dart';
 
@@ -185,6 +186,23 @@ class Effects {
   final LEDFx ledfx;
   Effects({required this.ledfx}) {
     ledfx.audio = null;
+  }
+
+  Effect create(Map<String, dynamic> effectData) {
+    final effectType = effectData['type'];
+    final effectConfigMap = effectData['config'] as Map<String, dynamic>;
+    final effectConfig = EffectConfig.fromJson(effectConfigMap);
+
+    Effect? effect;
+    if (effectType == 'WavelengthEffect') {
+      effect = WavelengthEffect(ledfx: ledfx, config: effectConfig);
+    }
+    // Add other effects here as they are implemented
+
+    if (effect != null) {
+      return effect;
+    }
+    throw Exception('Unknown effect type: $effectType');
   }
 }
 
