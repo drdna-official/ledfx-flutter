@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/devices/device.dart';
 import 'package:ledfx/src/effects/audio_reactive/audio.dart';
@@ -174,6 +177,17 @@ class LEDFx {
   Future<void> saveConfig() async {
     await storage?.saveDevices(config.devices);
     await storage?.saveVirtuals(config.virtuals);
+  }
+
+  void sendAudioDataToUI(String deviceID, List<Uint8List> pixelData) {
+    final uiPort = IsolateNameServer.lookupPortByName("ledfx_ui_port");
+    if (uiPort != null) {
+      final builder = BytesBuilder(copy: false);
+      for (final d in pixelData) {
+        builder.add(d);
+      }
+      uiPort.send({"event": "visualizer_update", "deviceID": deviceID, "data": builder.toBytes()});
+    }
   }
 
   // -- Devices --

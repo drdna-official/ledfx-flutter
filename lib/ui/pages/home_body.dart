@@ -211,7 +211,12 @@ class _HomeBodyState extends State<HomeBody> {
                                     onPressed: () {
                                       ledfxWorker.setEffect(
                                         v["id"],
-                                        EffectConfig(name: "wavelength", type: "wavelength", mirror: true, blur: 3.0),
+                                        EffectConfig(
+                                          name: "wavelength",
+                                          type: EffectType.wavelength,
+                                          mirror: true,
+                                          blur: 3.0,
+                                        ),
                                       );
                                     },
                                     label: Text("Add Effect"),

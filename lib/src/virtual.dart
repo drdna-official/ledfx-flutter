@@ -142,15 +142,7 @@ class Virtual {
 
   // multiplier to fade in(-)/out(+)
   late int fadeTimer;
-  bool _calibration = false;
-
-  bool _hlState = false;
-  Device? _hlDevice;
-  int _hlStart = 0;
-  int _hlEnd = 0;
-  int _hlStep = 1;
-
-  bool _osActive = false;
+  final bool _calibration = false;
 
   String? fallbackEffectType;
   bool fallbackActive = false;
@@ -270,28 +262,27 @@ class Virtual {
   double fpsToSleepInterval(int fps) => max(0.001, 1 / fps);
   void activate() {
     if (devices.isEmpty) {
-      print("no devices setup");
+      debugPrint("no devices setup");
       return;
     }
     if (activeEffect == null) {
-      print("no effect configured");
+      debugPrint("no effect configured");
       return;
     }
 
-    print("Virtual $id: Activating with segments $segments");
+    debugPrint("Virtual $id: Activating with segments $segments");
 
     if (!_active) {
       _active = true;
       try {
         activateSegments(segments);
       } on ArgumentError catch (e) {
-        print(e.toString());
+        debugPrint(e.toString());
       }
-      _osActive = false; // Reset OS active flag
     }
     // Calculate the base interval needed for the desired FPS
     _frameInterval = fpsToSleepInterval(refreshRate);
-    print("starting virtual loop");
+    debugPrint("starting virtual loop");
     _frameTimer = Timer.periodic(Duration(milliseconds: (_frameInterval * 1000).round()), _virtualLoop);
   }
 
@@ -299,7 +290,6 @@ class Virtual {
     _active = false;
     _frameTimer?.cancel();
     _frameTimer = null;
-    _osActive = false;
 
     deactivateSegments();
     ledfx.events.fireEvent(VirtualPauseEvent(id));
@@ -377,7 +367,7 @@ class Virtual {
     for (var s in segments) {
       validatedSegments.add(validateSegment(s));
     }
-    final _pixelCount = pixelCount;
+    final pCount = pixelCount;
     if (active) {
       deactivateSegments();
       try {
@@ -392,7 +382,7 @@ class Virtual {
     this.segments = validatedSegments;
     invalidateCache();
 
-    if (pixelCount != _pixelCount) {
+    if (pixelCount != pCount) {
       reactivateEffect();
     }
 
@@ -499,7 +489,7 @@ class Virtual {
 
   void setEffect(Map<String, dynamic> effectData, [double? fallback]) {
     if (devices.isEmpty) {
-      print("can not set effect, no active device");
+      debugPrint("can not set effect, no active device");
     }
 
     final effect = ledfx.effects.create(effectData);
@@ -691,6 +681,6 @@ class Virtuals with Iterable<MapEntry<String, Virtual>> {
       v!._streaming = (activeDevices.contains(vid) && !v.active);
     }
 
-    print("active devices - ${activeDevices.toString()}");
+    debugPrint("active devices - ${activeDevices.toString()}");
   }
 }

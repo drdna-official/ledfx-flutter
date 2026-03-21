@@ -43,7 +43,7 @@ class LEDFxEvents {
   final LEDFx ledfx;
   LEDFxEvents(this.ledfx) : _listeners = {};
 
-  Map<String, List<LEDFxEventListener>> _listeners;
+  final Map<String, List<LEDFxEventListener>> _listeners;
 
   void fireEvent(LEDFxEvent event) {
     final listeners = _listeners[event.eventType] ?? [];

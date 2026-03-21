@@ -7,11 +7,23 @@ import 'package:ledfx/src/effects/effects/wavelength.dart';
 import 'package:ledfx/utils/utils.dart';
 import 'package:ledfx/src/virtual.dart';
 
-enum EffectType { wavelength }
+enum EffectType {
+  wavelength,
+  unknown;
+
+  static EffectType fromName(String name) {
+    return EffectType.values.firstWhere((e) => e.name == name, orElse: () => EffectType.unknown);
+  }
+
+  String get fullName => switch (name) {
+    "wavelength" => "Wavelength",
+    _ => name,
+  };
+}
 
 class EffectConfig {
   String name;
-  String type;
+  EffectType type;
   double blur;
   bool flip;
   bool mirror;
@@ -39,7 +51,7 @@ class EffectConfig {
   Map<String, dynamic> toJson() {
     return {
       'name': name,
-      'type': type,
+      'type': type.name,
       'blur': blur,
       'flip': flip,
       'mirror': mirror,
@@ -55,7 +67,7 @@ class EffectConfig {
   factory EffectConfig.fromJson(Map<String, dynamic> json) {
     return EffectConfig(
       name: json['name'],
-      type: json['type'],
+      type: EffectType.fromName(json['type']),
       blur: json['blur'] ?? 1.0,
       flip: json['flip'] ?? false,
       mirror: json['mirror'] ?? false,
@@ -198,10 +210,14 @@ class Effects {
     final effectConfig = EffectConfig.fromJson(effectData);
 
     Effect? effect;
-    if (effectConfig.type == 'wavelength') {
-      effect = WavelengthEffect(ledfx: ledfx, config: effectConfig);
+    switch (effectConfig.type) {
+      case EffectType.wavelength:
+        effect = WavelengthEffect(ledfx: ledfx, config: effectConfig);
+        break;
+      case EffectType.unknown:
+        effect = null;
+        break;
     }
-    // Add other effects here as they are implemented
 
     if (effect != null) {
       return effect;

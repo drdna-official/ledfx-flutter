@@ -1,5 +1,4 @@
 import 'dart:isolate';
-import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -136,16 +135,5 @@ void _sendInfoToUI(String message) {
       "event": "info",
       "info": {"message": message},
     });
-  }
-}
-
-void sendAudioDataToUI(String deviceID, List<Uint8List> pixelData) {
-  final uiPort = IsolateNameServer.lookupPortByName("ledfx_ui_port");
-  if (uiPort != null) {
-    final builder = BytesBuilder(copy: false);
-    for (final d in pixelData) {
-      builder.add(d);
-    }
-    uiPort.send({"event": "visualizer_update", "deviceID": deviceID, "data": builder.toBytes()});
   }
 }
