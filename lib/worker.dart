@@ -33,8 +33,7 @@ class LEDFxWorker {
   ValueNotifier<int> activeAudioDeviceIndex = ValueNotifier(0);
 
   // Info state
-  StreamController<String> infoStreamController = StreamController<String>.broadcast();
-  Stream<String> get infoStream => infoStreamController.stream;
+  ValueNotifier<String> infoSnackText = ValueNotifier("");
 
   Future<void> init() async {
     _uiReceivePort?.close(); // Close existing port if re-initializing
@@ -113,7 +112,7 @@ class LEDFxWorker {
         isAudioCapturing.value = message["isCapturing"] ?? false;
         break;
       case "info":
-        infoStreamController.add(message["info"]["message"]);
+        infoSnackText.value = message["info"]["message"];
         break;
     }
   }
@@ -146,7 +145,7 @@ class LEDFxWorker {
     send({
       "cmd": "set_effect",
       "virtualId": virtualId,
-      "effectType": "WavelengthEffect", // Hardcoded for now based on UI
+      "effectType": effectConfig.name,
       "config": effectConfig.toJson(),
     });
   }

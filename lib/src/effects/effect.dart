@@ -7,8 +7,11 @@ import 'package:ledfx/src/effects/effects/wavelength.dart';
 import 'package:ledfx/utils/utils.dart';
 import 'package:ledfx/src/virtual.dart';
 
+enum EffectType { wavelength }
+
 class EffectConfig {
   String name;
+  String type;
   double blur;
   bool flip;
   bool mirror;
@@ -21,6 +24,7 @@ class EffectConfig {
 
   EffectConfig({
     required this.name,
+    required this.type,
     this.blur = 1.0,
     this.flip = false,
     this.mirror = false,
@@ -35,6 +39,7 @@ class EffectConfig {
   Map<String, dynamic> toJson() {
     return {
       'name': name,
+      'type': type,
       'blur': blur,
       'flip': flip,
       'mirror': mirror,
@@ -50,6 +55,7 @@ class EffectConfig {
   factory EffectConfig.fromJson(Map<String, dynamic> json) {
     return EffectConfig(
       name: json['name'],
+      type: json['type'],
       blur: json['blur'] ?? 1.0,
       flip: json['flip'] ?? false,
       mirror: json['mirror'] ?? false,
@@ -189,12 +195,10 @@ class Effects {
   }
 
   Effect create(Map<String, dynamic> effectData) {
-    final effectType = effectData['type'];
-    final effectConfigMap = effectData['config'] as Map<String, dynamic>;
-    final effectConfig = EffectConfig.fromJson(effectConfigMap);
+    final effectConfig = EffectConfig.fromJson(effectData);
 
     Effect? effect;
-    if (effectType == 'WavelengthEffect') {
+    if (effectConfig.type == 'wavelength') {
       effect = WavelengthEffect(ledfx: ledfx, config: effectConfig);
     }
     // Add other effects here as they are implemented
@@ -202,7 +206,7 @@ class Effects {
     if (effect != null) {
       return effect;
     }
-    throw Exception('Unknown effect type: $effectType');
+    throw Exception('Unknown effect type: ${effectConfig.type}');
   }
 }
 

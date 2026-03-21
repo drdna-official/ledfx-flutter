@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ledfx/src/effects/effect.dart';
+import 'package:ledfx/ui/pages/adaptive_layout.dart';
 import 'package:ledfx/worker.dart';
 import 'package:ledfx/ui/visualizer/visualizer_painter.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -12,7 +13,8 @@ Future<bool> requestNotificationPermission() async {
 }
 
 class HomeBody extends StatefulWidget {
-  const HomeBody({super.key});
+  const HomeBody({super.key, required this.layout});
+  final AdaptiveLayout layout;
 
   @override
   State<HomeBody> createState() => _HomeBodyState();
@@ -21,20 +23,12 @@ class HomeBody extends StatefulWidget {
 class _HomeBodyState extends State<HomeBody> {
   final LEDFxWorker ledfxWorker = LEDFxWorker.instance;
   final Map<String, bool> _expandedStates = {};
-  late StreamSubscription<String> _infoSubscription;
-
-  @override
-  void dispose() {
-    _infoSubscription.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
-    _infoSubscription = ledfxWorker.infoStream.listen((info) {
+    ledfxWorker.infoSnackText.addListener(() {
       if (mounted) {
-        // ignore: use_build_context_synchronously
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(info)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ledfxWorker.infoSnackText.value)));
       }
     });
 
@@ -43,6 +37,7 @@ class _HomeBodyState extends State<HomeBody> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.start,
+        spacing: 8,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -61,8 +56,12 @@ class _HomeBodyState extends State<HomeBody> {
             builder: (context, devices, child) {
               return Row(
                 children: [
-                  Text("Current Selected Device"),
-                  if (devices.isNotEmpty) Text(devices[ledfxWorker.activeAudioDeviceIndex.value].name),
+                  Text("Current Selected Device: "),
+                  if (devices.isNotEmpty)
+                    Text(
+                      devices[ledfxWorker.activeAudioDeviceIndex.value].name,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontStyle: FontStyle.italic),
+                    ),
                 ],
               );
             },
@@ -163,7 +162,7 @@ class _HomeBodyState extends State<HomeBody> {
                         SizedBox(
                           height: 10,
                           child: ValueListenableBuilder<List<int>>(
-                            valueListenable: ledfxWorker.getDeviceRgbNotifier(v["deviceID"]),
+                            valueListenable: ledfxWorker.getDeviceRgbNotifier(configMap["deviceID"]),
                             builder: (BuildContext context, List<int> data, Widget? child) {
                               if (data.isEmpty) return const SizedBox.shrink();
                               return CustomPaint(
@@ -212,7 +211,7 @@ class _HomeBodyState extends State<HomeBody> {
                                     onPressed: () {
                                       ledfxWorker.setEffect(
                                         v["id"],
-                                        EffectConfig(name: "wavelength", mirror: true, blur: 3.0),
+                                        EffectConfig(name: "wavelength", type: "wavelength", mirror: true, blur: 3.0),
                                       );
                                     },
                                     label: Text("Add Effect"),

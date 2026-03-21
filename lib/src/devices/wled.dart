@@ -116,12 +116,12 @@ class WLED {
         // The request was successful (status code 200).
         // Parse the JSON data from the response body.
         final Map<String, dynamic> data = json.decode(response.body);
-        log('Data received: $data');
+        debugPrint('Data received: $data');
         // You can now use the 'data' map to update your UI or process the information.
         return data;
       }
     } catch (e) {
-      log("error ${e.toString()}");
+      debugPrint("error ${e.toString()}");
     }
 
     return null;
@@ -134,12 +134,12 @@ class WLED {
         // The request was successful (status code 200).
         // Parse the JSON data from the response body.
         final Map<String, dynamic> data = json.decode(response.body);
-        log('Data received: $data');
+        debugPrint('Data received: $data');
         // You can now use the 'data' map to update your UI or process the information.
         return data;
       }
     } catch (e) {
-      log("error ${e.toString()}");
+      debugPrint("error ${e.toString()}");
     }
 
     return null;

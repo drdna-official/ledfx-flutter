@@ -148,8 +148,6 @@ class LEDFx {
     virtuals.createFromConfig(config.virtuals, pauseAll);
 
     if (pauseAll) virtuals.pauseAll();
-
-    debugPrint(events.toString());
   }
 
   Future<void> stop([int exitCode = 0]) async {
@@ -158,13 +156,35 @@ class LEDFx {
     // TODO: Save Config before shutdown
   }
 
+  void updateConfig() {
+    config.devices = devices.map((e) => {"id": e.key, "config": e.value.config.toJson()}).toList();
+    config.virtuals = virtuals
+        .map(
+          (e) => {
+            "id": e.key,
+            "config": e.value.config.toJson(),
+            "active": e.value.active,
+            "activeEffect": e.value.activeEffect?.config.toJson(),
+            "segments": e.value.segments.map((s) => s.toJson()).toList(),
+          },
+        )
+        .toList();
+  }
+
+  Future<void> saveConfig() async {
+    await storage?.saveDevices(config.devices);
+    await storage?.saveVirtuals(config.virtuals);
+  }
+
   // -- Devices --
-
+  // Add New Device
   Future<void> addDevice(String type, String name, String address) async {
-    devices.addNewDevice(type, name, address);
-
-    storage?.saveDevices(config.devices);
-    storage?.saveVirtuals(config.virtuals);
+    try {
+      await devices.addNewDevice(type, name, address);
+      await saveConfig();
+    } catch (e) {
+      rethrow;
+    }
   }
 
   // Remove Device
@@ -177,7 +197,15 @@ class LEDFx {
     device.deactivate();
     devices.destroyDevice(deviceID);
     config.devices.removeWhere((v) => v["id"] == deviceID);
-    await storage?.saveDevices(config.devices);
+    await saveConfig();
+
+    final virtualsToRemove = virtuals.virtuals.entries
+        .where((e) => e.value.deviceID == deviceID)
+        .map((e) => e.key)
+        .toList();
+    for (var vId in virtualsToRemove) {
+      await removeVirtual(vId);
+    }
   }
 
   // -- Virtuals --
@@ -189,7 +217,7 @@ class LEDFx {
       return;
     }
     virtual.updateSegments(segments);
-    await storage?.saveVirtuals(config.virtuals);
+    await saveConfig();
   }
 
   // Activate-Deactivate Virtual
@@ -200,8 +228,8 @@ class LEDFx {
       return;
     }
     virtual.active = active;
-    virtual.virtualData["active"] = virtual.active;
-    await storage?.saveVirtuals(config.virtuals);
+    updateConfig();
+    await saveConfig();
   }
 
   // Remove Virtual
@@ -222,6 +250,17 @@ class LEDFx {
 
     virtuals.destroyVirtual(virtualID);
     config.virtuals.removeWhere((v) => v["id"] == virtualID);
-    await storage?.saveVirtuals(config.virtuals);
+    await saveConfig();
+  }
+
+  // Set Effect
+  Future<void> setEffect(String virtualID, Map<String, dynamic> effectConfig) async {
+    final virtual = virtuals.get(virtualID);
+    if (virtual == null) {
+      debugPrint("Virtual not found: $virtualID");
+      return;
+    }
+    virtual.setEffect(effectConfig);
+    await saveConfig();
   }
 }
