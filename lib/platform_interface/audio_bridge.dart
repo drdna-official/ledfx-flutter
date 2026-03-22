@@ -191,17 +191,9 @@ class AudioBridge {
     }
   }
 
-  Future<bool?> pause() async {
+  Future<bool?> getRecordingState() async {
     try {
-      return await _method.invokeMethod<bool?>('pauseRecording');
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<bool?> resume() async {
-    try {
-      return await _method.invokeMethod<bool?>('resumeRecording');
+      return await _method.invokeMethod<bool?>('getRecordingState');
     } catch (e) {
       return false;
     }

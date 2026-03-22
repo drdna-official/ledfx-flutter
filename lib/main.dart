@@ -28,11 +28,25 @@ class _MyAppState extends State<MyApp> {
     super.dispose();
   }
 
+  final colorScheme = ColorScheme.fromSeed(seedColor: Colors.amber, brightness: Brightness.dark);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Audio Visualizer',
-      theme: ThemeData.dark(),
+      title: 'LEDFx - Audio Visualizer',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: colorScheme,
+        // Global BottomAppBar Theme
+        bottomAppBarTheme: BottomAppBarThemeData(color: colorScheme.surfaceContainer),
+        // Global NavigationRail Theme
+        navigationRailTheme: NavigationRailThemeData(
+          backgroundColor: colorScheme.surfaceContainer,
+          selectedLabelTextStyle: TextStyle(fontStyle: FontStyle.italic),
+          unselectedLabelTextStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+        ),
+      ),
       home: Scaffold(
         body: Center(
           child: FutureBuilder(

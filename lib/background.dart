@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/platform_interface/audio_bridge.dart';
 import 'package:ledfx/src/storage/storage.dart';
+import 'package:ledfx/src/virtual.dart';
 
 @pragma('vm:entry-point')
 void backgroundAudioProcessing() async {
@@ -27,6 +28,9 @@ void backgroundAudioProcessing() async {
     // Create LEDFx instance
     final ledfx = LEDFx(config: LEDFxConfig(), storage: storage);
     await ledfx.start();
+    ledfx.config.addListener(() {
+      _sendStateToUI(ledfx);
+    });
 
     // In the background isolate, AudioBridge will receive audio events from the Native ForegroundService
     // because the native service uses the background FlutterEngine's binaryMessenger to send those events.
@@ -46,8 +50,6 @@ void backgroundAudioProcessing() async {
               _sendInfoToUI("Device added successfully");
             } catch (e) {
               _sendInfoToUI("Failed to add device: ${e.toString()}");
-            } finally {
-              _sendStateToUI(ledfx);
             }
             break;
           case "remove_device":
@@ -56,8 +58,22 @@ void backgroundAudioProcessing() async {
               await ledfx.removeDevice(deviceId);
             } catch (e) {
               debugPrint("Failed to remove device: ${e.toString()}");
-            } finally {
-              _sendStateToUI(ledfx);
+            }
+            break;
+          case "add_virtual":
+            try {
+              final name = message["name"];
+              await ledfx.addVirtual(name);
+            } catch (e) {
+              debugPrint("Failed to add virtual: ${e.toString()}");
+            }
+            break;
+          case "remove_virtual":
+            try {
+              final vId = message["virtualId"];
+              await ledfx.removeVirtual(vId);
+            } catch (e) {
+              debugPrint("Failed to remove virtual: ${e.toString()}");
             }
             break;
           case "set_virtual_active":
@@ -67,19 +83,24 @@ void backgroundAudioProcessing() async {
               await ledfx.toggleVirtual(vId, active);
             } catch (e) {
               debugPrint("Failed: ${e.toString()}");
-            } finally {
-              _sendStateToUI(ledfx);
             }
             break;
-          case "set_effect":
+          case "update_virtual_segments":
+            try {
+              final vId = message["virtualId"];
+              final segments = message["segments"] as List<Map<String, dynamic>>;
+              await ledfx.updateVirtualSegments(vId, segments.map((e) => SegmentConfig.fromJson(e)).toList());
+            } catch (e) {
+              debugPrint("Failed: ${e.toString()}");
+            }
+            break;
+          case "set_virtual_effect":
             try {
               final vId = message["virtualId"];
               final configMap = message["config"] as Map<String, dynamic>;
-              await ledfx.setEffect(vId, configMap);
+              await ledfx.setVirtualEffect(vId, configMap);
             } catch (e) {
               debugPrint("Failed: ${e.toString()}");
-            } finally {
-              _sendStateToUI(ledfx);
             }
             break;
           case "get_audio_devices":
@@ -95,6 +116,7 @@ void backgroundAudioProcessing() async {
 
     AudioBridge.instance.events.listen((event) {
       if (event is StateEvent) {
+        debugPrint("Background Worker: ${event.value}");
         final uiPort = IsolateNameServer.lookupPortByName("ledfx_ui_port");
         uiPort?.send({"event": "audio_state", "isCapturing": event.value == "recording_started"});
       }

@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/effects/effect.dart';
 import 'package:ledfx/platform_interface/audio_bridge.dart';
+import 'package:ledfx/src/virtual.dart';
 
 /// The proxy class that the UI uses to communicate with the background
 /// `LEDFx` isolate.
@@ -59,6 +60,12 @@ class LEDFxWorker {
       }
     });
     AudioBridge.instance.getDevices();
+
+    // Fetch the initial recording state directly to sync UI
+    final bool? isCapturing = await AudioBridge.instance.getRecordingState();
+    if (isCapturing != null) {
+      isAudioCapturing.value = isCapturing;
+    }
   }
 
   void _connectToBackground() {
@@ -88,6 +95,7 @@ class LEDFxWorker {
   void _handleBackgroundMessage(Map<String, dynamic> message) {
     switch (message["event"]) {
       case "state_update":
+        debugPrint("State update: ${message["state"]}");
         final state = message["state"] as Map<String, dynamic>;
         if (state.containsKey("devices")) {
           devices.value = List<Map<String, dynamic>>.from(state["devices"]);
@@ -137,13 +145,29 @@ class LEDFxWorker {
     _lastUpdate.remove(deviceId);
   }
 
+  void addNewVirtual(String name) {
+    send({"cmd": "add_virtual", "name": name});
+  }
+
+  void removeVirtual(String virtualId) {
+    send({"cmd": "remove_virtual", "virtualId": virtualId});
+  }
+
+  void updateVirtualSegments(String virtualId, List<SegmentConfig> segments) {
+    send({
+      "cmd": "update_virtual_segments",
+      "virtualId": virtualId,
+      "segments": segments.map((s) => s.toJson()).toList(),
+    });
+  }
+
   void toggleVirtual(String virtualId, bool active) {
     send({"cmd": "set_virtual_active", "virtualId": virtualId, "active": active});
   }
 
-  void setEffect(String virtualId, EffectConfig effectConfig) {
+  void setVirtualEffect(String virtualId, EffectConfig effectConfig) {
     send({
-      "cmd": "set_effect",
+      "cmd": "set_virtual_effect",
       "virtualId": virtualId,
       "effectType": effectConfig.name,
       "config": effectConfig.toJson(),

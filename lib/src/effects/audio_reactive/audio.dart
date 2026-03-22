@@ -75,11 +75,11 @@ abstract class AudioInputSource {
           switch (value) {
             case "recording_started":
               _audioStreamActive = true;
-              debugPrint("recording started");
+              debugPrint("AudioInputSource: recording started");
               break;
             case "recording_stopped":
               _audioStreamActive = false;
-              debugPrint("recording stopped");
+              debugPrint("AudioInputSource: recording stopped");
               break;
           }
           break;

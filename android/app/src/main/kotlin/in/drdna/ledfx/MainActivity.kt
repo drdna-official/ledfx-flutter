@@ -107,6 +107,11 @@ class MainActivity : FlutterFragmentActivity() {
                         result.success(false)
                     }
                 }
+                "getRecordingState" -> {
+                    val recording = RecordingService.isRecording
+                    result.success(recording)
+                    RecordingBridge.sendState(if (recording) "recording_started" else "recording_stopped")
+                }
                 else -> result.notImplemented()
             }
         }

@@ -46,6 +46,8 @@ public:
                int sampleRate, int channels, int blockSize);
     void Stop();
 
+    bool IsCapturing() const { return is_capturing_; }
+
 private:
     void AudioCaptureThread();
     void CaptureAudio(IMMDevice* device, bool loopback);

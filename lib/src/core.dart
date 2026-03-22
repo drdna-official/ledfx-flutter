@@ -6,13 +6,12 @@ import 'package:ledfx/src/devices/device.dart';
 import 'package:ledfx/src/effects/audio_reactive/audio.dart';
 import 'package:ledfx/src/effects/effect.dart';
 import 'package:ledfx/src/effects/audio_reactive/melbank.dart';
-import 'package:ledfx/src/events.dart';
 import 'package:ledfx/src/virtual.dart';
 import 'package:ledfx/src/storage/storage.dart';
 
 enum Transmission { base64Compressed, uncompressed }
 
-class LEDFxConfig {
+class LEDFxConfig extends ChangeNotifier {
   List<Map<String, dynamic>>? melbankCollection;
   MelbankConfig? melbankConfig;
 
@@ -42,30 +41,30 @@ class LEDFxConfig {
       virtuals = loadedVirtuals;
     }
   }
+
+  notify() {
+    super.notifyListeners();
+  }
 }
 
 class LEDFx {
   final LEDFxConfig config;
   final Storage? storage;
   AudioAnalysisSource? audio;
-  late LEDFxEvents events;
   late Devices devices;
   late Virtuals virtuals;
   late Effects effects;
 
   late VoidCallback virtualListener;
   late VoidCallback deviceListener;
-  late void Function(LEDFxEvent) visualisationUpdateListener;
 
   LEDFx({required this.config, this.storage}) {
-    events = LEDFxEvents(this);
-    // setupVisualisationEvents();
-    events.addListener(handleBaseConfigUpdate, LEDFxEvent.BASE_CONFIG_UPDATE);
-  }
-  void handleBaseConfigUpdate(LEDFxEvent event) {
-    // Handle specific updates -- setup visualisation events fresh
     // setupVisualisationEvents();
   }
+  // void handleBaseConfigUpdate(LEDFxEvent event) {
+  // Handle specific updates -- setup visualisation events fresh
+  // setupVisualisationEvents();
+  // }
 
   // setupVisualisationEvents() async {
   //   final minTimeSince = 1 / config.visualizationFPS * 1000_000;
@@ -155,7 +154,6 @@ class LEDFx {
 
   Future<void> stop([int exitCode = 0]) async {
     debugPrint("stopping ...");
-    events.fireEvent(LEDFxShutdownEvent());
     // TODO: Save Config before shutdown
   }
 
@@ -172,6 +170,7 @@ class LEDFx {
           },
         )
         .toList();
+    config.notify();
   }
 
   Future<void> saveConfig() async {
@@ -211,7 +210,6 @@ class LEDFx {
     device.deactivate();
     devices.destroyDevice(deviceID);
     config.devices.removeWhere((v) => v["id"] == deviceID);
-    await saveConfig();
 
     final virtualsToRemove = virtuals.virtuals.entries
         .where((e) => e.value.deviceID == deviceID)
@@ -220,11 +218,25 @@ class LEDFx {
     for (var vId in virtualsToRemove) {
       await removeVirtual(vId);
     }
+
+    updateConfig();
+    await saveConfig();
   }
 
   // -- Virtuals --
+  // Create a Virtual Strip
+  Future<void> addVirtual(String name) async {
+    try {
+      await virtuals.addNewVirtual(name);
+      await saveConfig();
+    } catch (e) {
+      debugPrint("Failed to Create Virtual Strip: $e");
+      rethrow;
+    }
+  }
+
   // Update This Virtual's Segments
-  Future<void> updateVirtual(String virtualID, List<SegmentConfig> segments) async {
+  Future<void> updateVirtualSegments(String virtualID, List<SegmentConfig> segments) async {
     final virtual = virtuals.get(virtualID);
     if (virtual == null) {
       debugPrint("Virtual not found: $virtualID");
@@ -264,11 +276,12 @@ class LEDFx {
 
     virtuals.destroyVirtual(virtualID);
     config.virtuals.removeWhere((v) => v["id"] == virtualID);
+    updateConfig();
     await saveConfig();
   }
 
   // Set Effect
-  Future<void> setEffect(String virtualID, Map<String, dynamic> effectConfig) async {
+  Future<void> setVirtualEffect(String virtualID, Map<String, dynamic> effectConfig) async {
     final virtual = virtuals.get(virtualID);
     if (virtual == null) {
       debugPrint("Virtual not found: $virtualID");

@@ -30,8 +30,8 @@ void RecordingBridge::RegisterChannels(flutter::BinaryMessenger* messenger) {
 
     event_channel->SetStreamHandler(std::make_unique<flutter::StreamHandlerFunctions<flutter::EncodableValue>>(
         [this, messenger](auto arguments, auto events) -> std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>> {
-            std::lock_guard<std::mutex> lock(event_sinks_mutex_);
-            event_sinks_[messenger] = std::move(events);
+                std::lock_guard<std::mutex> lock(event_sinks_mutex_);
+                event_sinks_[messenger] = std::move(events);
             return nullptr;
         },
         [this, messenger](auto arguments) -> std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>> {
@@ -53,6 +53,7 @@ void RecordingBridge::HandleMethodCall(const flutter::MethodCall<flutter::Encoda
         StartRecording,
         StopRecording,
         SetupBackgroundExecution,
+        GetRecordingState,
         Unknown
     };
 
@@ -60,7 +61,8 @@ void RecordingBridge::HandleMethodCall(const flutter::MethodCall<flutter::Encoda
         {"requestDeviceList", Method::RequestDeviceList},
         {"startRecording", Method::StartRecording},
         {"stopRecording", Method::StopRecording},
-        {"setupBackgroundExecution", Method::SetupBackgroundExecution}
+        {"setupBackgroundExecution", Method::SetupBackgroundExecution},
+        {"getRecordingState", Method::GetRecordingState}
     };
 
     Method method = Method::Unknown;
@@ -126,6 +128,12 @@ void RecordingBridge::HandleMethodCall(const flutter::MethodCall<flutter::Encoda
             }
             StartBackgroundEngine(handle);
             result->Success(flutter::EncodableValue(true));
+            break;
+        }
+        case Method::GetRecordingState: {
+            bool capturing = recorder_->IsCapturing();
+            result->Success(flutter::EncodableValue(capturing));
+            PostState(capturing ? "recording_started" : "recording_stopped");
             break;
         }
         default:
