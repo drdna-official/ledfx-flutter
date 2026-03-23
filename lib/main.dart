@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:ledfx/background.dart' as bg;
 import 'package:ledfx/platform_interface/audio_bridge.dart';
 import 'package:ledfx/worker.dart';
@@ -9,6 +10,8 @@ void backgroundAudioProcessing() => bg.backgroundAudioProcessing();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
   await AudioBridge.instance.setupBackgroundExecution(backgroundAudioProcessing);
 
   runApp(const MyApp());
@@ -47,24 +50,30 @@ class _MyAppState extends State<MyApp> {
           unselectedLabelTextStyle: TextStyle(color: colorScheme.onSurfaceVariant),
         ),
       ),
-      home: Scaffold(
-        body: Center(
-          child: FutureBuilder(
-            future: LEDFxWorker.instance.init(),
-            builder: (BuildContext context, AsyncSnapshot<void> snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: Column(children: [CircularProgressIndicator(), Text('Connecting to Background Isolate')]),
-                );
-              } else if (snapshot.hasError) {
-                return Center(
-                  child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
-                );
-              } else if (snapshot.connectionState == ConnectionState.done) {
-                return AdaptiveNavigationLayout();
-              }
-              return const SizedBox.shrink();
-            },
+      home: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarDividerColor: Colors.transparent,
+        ),
+        child: Scaffold(
+          body: Center(
+            child: FutureBuilder(
+              future: LEDFxWorker.instance.init(),
+              builder: (BuildContext context, AsyncSnapshot<void> snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Column(children: [CircularProgressIndicator(), Text('Connecting to Background Isolate')]),
+                  );
+                } else if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
+                  );
+                } else if (snapshot.connectionState == ConnectionState.done) {
+                  return AdaptiveNavigationLayout();
+                }
+                return const SizedBox.shrink();
+              },
+            ),
           ),
         ),
       ),

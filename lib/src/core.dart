@@ -3,9 +3,9 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/devices/device.dart';
-import 'package:ledfx/src/effects/audio_reactive/audio.dart';
+import 'package:ledfx/src/audio/audio.dart';
 import 'package:ledfx/src/effects/effect.dart';
-import 'package:ledfx/src/effects/audio_reactive/melbank.dart';
+import 'package:ledfx/src/audio/melbank.dart';
 import 'package:ledfx/src/virtual.dart';
 import 'package:ledfx/src/storage/storage.dart';
 
@@ -27,7 +27,7 @@ class LEDFxConfig extends ChangeNotifier {
     this.visualizationFPS = 24,
     this.visualisationMaxLen = 1,
     this.transmissionMode = Transmission.uncompressed,
-    this.flushOnDeactivate = false,
+    this.flushOnDeactivate = true,
   });
 
   Future<void> loadFromStorage(Storage storage) async {
@@ -50,7 +50,7 @@ class LEDFxConfig extends ChangeNotifier {
 class LEDFx {
   final LEDFxConfig config;
   final Storage? storage;
-  AudioAnalysisSource? audio;
+  AudioAnalysisSource? audioSource;
   late Devices devices;
   late Virtuals virtuals;
   late Effects effects;
@@ -58,76 +58,7 @@ class LEDFx {
   late VoidCallback virtualListener;
   late VoidCallback deviceListener;
 
-  LEDFx({required this.config, this.storage}) {
-    // setupVisualisationEvents();
-  }
-  // void handleBaseConfigUpdate(LEDFxEvent event) {
-  // Handle specific updates -- setup visualisation events fresh
-  // setupVisualisationEvents();
-  // }
-
-  // setupVisualisationEvents() async {
-  //   final minTimeSince = 1 / config.visualizationFPS * 1000_000;
-  //   final timeSinceLast = {};
-  //   final maxLen = config.visualisationMaxLen;
-
-  //   void handleVisualisationUpdate(LEDFxEvent event) {
-  //     final isDevice = event.eventType == LEDFxEvent.DEVICE_UPDATE;
-  //     final timeNow = DateTime.now();
-  //     final visID = isDevice ? (event as DeviceUpdateEvent).deviceID : (event as VirtualUpdateEvent).virtualID;
-  //     if (timeSinceLast[visID] == null) {
-  //       timeSinceLast[visID] == timeNow.microsecond;
-  //       return;
-  //     }
-  //     final timeSince = timeNow.microsecond - timeSinceLast[visID];
-  //     if (timeSince < minTimeSince) return;
-  //     timeSinceLast[visID] == timeNow.microsecond;
-
-  //     //TODO: implement virtuals
-  //     final rows = 1;
-
-  //     List<Uint8List> pixels = isDevice ? (event as DeviceUpdateEvent).pixels : (event as VirtualUpdateEvent).pixels;
-  //     final pixelsLen = pixels.length;
-  //     List<int> shape = [rows, (pixelsLen / rows).toInt()];
-
-  //     if (pixelsLen > maxLen) {}
-
-  //     if (config.transmissionMode == Transmission.base64Compressed) {
-  //     } else {
-  //       if (pixels.isEmpty || pixels[0].isEmpty) {
-  //         return;
-  //       }
-
-  //       final List<int> pixelsShape = NdArray.fromList(pixels).shape;
-
-  //       List<List<double>> transposedAndCasted = List.generate(
-  //         pixelsShape[1],
-  //         (j) => List<double>.filled(pixelsShape[0], 0),
-  //       );
-
-  //       for (int i = 0; i < pixelsShape[0]; i++) {
-  //         for (int j = 0; j < pixelsShape[1]; j++) {
-  //           // Get the value, ensure it's clamped and converted to 0-255 integer (uint8)
-  //           int val = pixels[i][j];
-
-  //           // Clamp values between 0 and 255 and cast to int
-  //           // int uint8Value = val.clamp(0.0, 255.0).round().toInt();
-  //           int uint8Value = val.clamp(0, 255);
-
-  //           // Place into the transposed position
-  //           transposedAndCasted[j][i] = uint8Value;
-  //         }
-  //       }
-  //       pixels = List.generate(transposedAndCasted.length, (i) => Float64List.fromList(transposedAndCasted[i]));
-  //     }
-
-  //     events.fireEvent(VisualisationUpdateEvent(visID, pixels, shape, isDevice));
-  //   }
-
-  //   visualisationUpdateListener = handleVisualisationUpdate;
-  //   deviceListener = await events.addListener(visualisationUpdateListener, LEDFxEvent.DEVICE_UPDATE);
-  //   virtualListener = await events.addListener(visualisationUpdateListener, LEDFxEvent.VIRTUAL_UPDATE);
-  // }
+  LEDFx({required this.config, this.storage});
 
   Future<void> start([bool pauseAll = false]) async {
     debugPrint("starting LEDFx");
@@ -150,21 +81,25 @@ class LEDFx {
     virtuals.createFromConfig(config.virtuals, pauseAll);
 
     if (pauseAll) virtuals.pauseAll();
+
+    updateCoreConfig();
   }
 
   Future<void> stop([int exitCode = 0]) async {
     debugPrint("stopping ...");
-    // TODO: Save Config before shutdown
+    await saveConfig();
   }
 
-  void updateConfig() {
+  // Needs to be called from functions that is called from core
+  // like the functions defined below
+  void updateCoreConfig() {
     config.devices = devices.map((e) => {"id": e.key, "config": e.value.config.toJson()}).toList();
     config.virtuals = virtuals
         .map(
           (e) => {
             "id": e.key,
             "config": e.value.config.toJson(),
-            "active": e.value.active,
+            "active": e.value.isActive,
             "activeEffect": e.value.activeEffect?.config.toJson(),
             "segments": e.value.segments.map((s) => s.toJson()).toList(),
           },
@@ -219,7 +154,7 @@ class LEDFx {
       await removeVirtual(vId);
     }
 
-    updateConfig();
+    updateCoreConfig();
     await saveConfig();
   }
 
@@ -228,6 +163,7 @@ class LEDFx {
   Future<void> addVirtual(String name) async {
     try {
       await virtuals.addNewVirtual(name);
+      updateCoreConfig();
       await saveConfig();
     } catch (e) {
       debugPrint("Failed to Create Virtual Strip: $e");
@@ -243,6 +179,7 @@ class LEDFx {
       return;
     }
     virtual.updateSegments(segments);
+    updateCoreConfig();
     await saveConfig();
   }
 
@@ -253,8 +190,8 @@ class LEDFx {
       debugPrint("Virtual not found: $virtualID");
       return;
     }
-    virtual.active = active;
-    updateConfig();
+    virtual.isActive = active;
+    updateCoreConfig();
     await saveConfig();
   }
 
@@ -274,9 +211,9 @@ class LEDFx {
       config.devices.removeWhere((v) => v["id"] == deviceID);
     }
 
-    virtuals.destroyVirtual(virtualID);
+    virtuals.removeVirtual(virtualID);
     config.virtuals.removeWhere((v) => v["id"] == virtualID);
-    updateConfig();
+    updateCoreConfig();
     await saveConfig();
   }
 

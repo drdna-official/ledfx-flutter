@@ -34,7 +34,7 @@ void backgroundAudioProcessing() async {
 
     // In the background isolate, AudioBridge will receive audio events from the Native ForegroundService
     // because the native service uses the background FlutterEngine's binaryMessenger to send those events.
-    ledfx.audio?.activate(); // Subscribe to the background isolate's audio stream stream
+    ledfx.audioSource?.activate(); // Subscribe to the background isolate's audio stream stream
 
     bgReceivePort.listen((message) async {
       if (message is Map<String, dynamic>) {
@@ -138,7 +138,7 @@ void _sendStateToUI(LEDFx ledfx) {
           return {
             "id": e.key,
             "config": e.value.config.toJson(),
-            "active": e.value.active,
+            "active": e.value.isActive,
             "activeEffect": e.value.activeEffect?.config.toJson(),
             "segments": e.value.segments.map((s) => s.toJson()).toList(),
           };

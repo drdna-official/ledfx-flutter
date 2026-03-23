@@ -7,9 +7,9 @@ import 'package:ledfx/ffi/aubio/aubio.dart';
 import 'package:ledfx/ffi/aubio/aubio_bindings.dart';
 import 'package:ledfx/platform_interface/audio_bridge.dart';
 import 'package:ledfx/src/core.dart';
-import 'package:ledfx/src/effects/audio_reactive/const.dart';
-import 'package:ledfx/src/effects/audio_reactive/dsp.dart';
-import 'package:ledfx/src/effects/audio_reactive/melbank.dart';
+import 'package:ledfx/src/audio/const.dart';
+import 'package:ledfx/src/audio/dsp.dart';
+import 'package:ledfx/src/audio/melbank.dart';
 import 'package:ledfx/utils/utils.dart';
 
 import 'mel_utils.dart';

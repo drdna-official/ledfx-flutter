@@ -185,7 +185,7 @@ class Devices extends Iterable<MapEntry<String, Device>> {
       config.name = wledName;
     }
     // Update Core Config - Device
-    ledfx.updateConfig();
+    ledfx.updateCoreConfig();
 
     // Auto Generate Virtual for the Device and attach
     final virtualID = nanoid(10);
@@ -205,7 +205,7 @@ class Devices extends Iterable<MapEntry<String, Device>> {
     virtual.updateSegments(segments);
 
     // Update Core Config - Virtual
-    ledfx.updateConfig();
+    ledfx.updateCoreConfig();
 
     await device.postamble();
 
@@ -247,13 +247,13 @@ abstract class Device {
     _refreshRate = refreshRate ?? 60;
   }
 
-  bool _active = false;
-  bool get isActive => _active;
+  bool _isActive = false;
+  bool get isActive => _isActive;
 
   bool _online = true;
   bool get isOnline => _online;
 
-  List<Float64List>? _pixels;
+  List<Uint8List>? _devicePixels;
 
   List<Virtual>? _cachedVirtualsObjs;
   List<Virtual> get _virtualObjs => () {
@@ -267,7 +267,7 @@ abstract class Device {
     _cachedVirtualsObjs = vs;
     return _cachedVirtualsObjs!;
   }();
-  List<String> get activeVirtuals => _virtualObjs.where((v) => v.active).map((v) => v.id).toList();
+  List<String> get activeVirtuals => _virtualObjs.where((v) => v.isActive).map((v) => v.id).toList();
   List<String>? _cachedVirtuals;
   List<String> get virtuals => () {
     if (_cachedVirtuals != null) return _cachedVirtuals!;
@@ -278,8 +278,8 @@ abstract class Device {
   List<SegmentConfig> _segments = [];
 
   void activate() {
-    _pixels = List.filled(pixelCount, Float64List(3));
-    _active = true;
+    _devicePixels = List.filled(pixelCount, Uint8List(3));
+    _isActive = true;
   }
 
   void del() {
@@ -287,8 +287,8 @@ abstract class Device {
   }
 
   void deactivate() {
-    _pixels = null;
-    _active = false;
+    _devicePixels = null;
+    _isActive = false;
   }
 
   void invalidateCache() {
@@ -300,7 +300,7 @@ abstract class Device {
   void setOffline() {
     deactivate();
     _online = false;
-    ledfx.updateConfig();
+    ledfx.updateCoreConfig();
   }
 
   ///Flushes the provided data to the device. This abstract method must be
@@ -355,18 +355,24 @@ abstract class Device {
     return;
   }
 
-  void updatePixels(String virtualID, List<(List<Float64List>, int, int)> data) {
-    if (_active == false) {
+  /// Updates the pixels of the device from Virtual data by segments.
+  ///
+  /// [virtualID] The ID of the virtual that is sending the data
+  /// [data] A list of tuples containing the pixels, start index, and end index
+  /// each Uint8List is a pixel with 3 bytes (R, G, B)
+  void updatePixels(String virtualID, List<(List<Uint8List>, int, int)> data) {
+    if (_isActive == false) {
       debugPrint("Can't update inactive device: $name");
       return;
     }
 
     for (final (pixels, start, end) in data) {
-      if (pixels.isNotEmpty && _pixels != null && _pixels!.isNotEmpty) {
+      if (pixels.isNotEmpty && _devicePixels != null && _devicePixels!.isNotEmpty) {
         if (pixels[0].length == 3 ||
-            ((pixels.length < end && _pixels!.length < end) && pixels[start].length == _pixels![start].length)) {
+            ((pixels.length < end && _devicePixels!.length < end) &&
+                pixels[start].length == _devicePixels![start].length)) {
           for (int i = start; i < end + 1; i++) {
-            _pixels![i] = pixels[i];
+            _devicePixels![i] = pixels[i - start];
           }
         }
       }
@@ -394,23 +400,10 @@ abstract class Device {
   }
 
   List<Uint8List>? assembleFrame() {
-    if (_pixels == null) return null;
-    List<Float64List> frame = _pixels!;
+    if (_devicePixels == null) return null;
+    List<Uint8List> frame = _devicePixels!;
     if (centerOffset > 0) frame.roll(centerOffset);
-
-    final int totalBytes = frame.length * 3;
-    final Uint8List byteData = Uint8List(totalBytes);
-    int byteIndex = 0;
-
-    for (final Float64List pixelData in frame) {
-      for (final double value in pixelData) {
-        byteData[byteIndex++] = value.toInt().clamp(0, 255);
-      }
-    }
-
-    return frame
-        .map((pixelData) => Uint8List.fromList(pixelData.map((v) => v.toInt().clamp(0, 255)).toList()))
-        .toList();
+    return frame;
   }
 
   // Returns the first virtual that has the highest refresh rate of all virtuals
@@ -419,9 +412,9 @@ abstract class Device {
   Virtual? get priorityVirtual {
     if (_cachedPriorityVirtual != null) return _cachedPriorityVirtual;
 
-    if (!_virtualObjs.any((v) => v.active)) return null;
+    if (!_virtualObjs.any((v) => v.isActive)) return null;
 
-    final refreshRate = _virtualObjs.where((v) => v.active).map((v) => v.refreshRate).reduce(max);
+    final refreshRate = _virtualObjs.where((v) => v.isActive).map((v) => v.refreshRate).reduce(max);
 
     final Virtual priority = _virtualObjs.firstWhere((virtual) => virtual.refreshRate == refreshRate);
 
@@ -433,7 +426,7 @@ abstract class Device {
     for (var i in _segments) {
       if (i.deviceID == config.deviceID) continue;
 
-      final overlap = (min(i.end, config.end) - max(i.end, config.start) + 1);
+      final overlap = (min(i.end, config.end) - max(i.start, config.start) + 1);
 
       if (overlap > 0) {
         final virtualName = ledfx.virtuals.virtuals[config.deviceID]?.name;
@@ -467,10 +460,10 @@ abstract class Device {
       if (segment.deviceID != id) {
         newSegments.add(segment);
       } else {
-        if (_pixels != null && ledfx.config.flushOnDeactivate) {
+        if (_devicePixels != null && ledfx.config.flushOnDeactivate) {
           for (int i = segment.start; i <= segment.end; i++) {
-            final Float64List zeroRow = Float64List(3);
-            _pixels![i] = zeroRow;
+            final Uint8List zeroRow = Uint8List(3);
+            _devicePixels![i] = zeroRow;
           }
         }
       }
@@ -489,7 +482,7 @@ abstract class Device {
   Future<void> removeFromVirtual(String virtualID) async {
     for (var v in ledfx.virtuals.virtuals.values) {
       if (!v.segments.any((seg) => seg.deviceID == id)) continue;
-      final active = v.active;
+      final active = v.isActive;
       if (active) v.deactivate();
       v.segments.removeWhere((seg) => seg.deviceID == id);
 

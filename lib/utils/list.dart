@@ -151,37 +151,28 @@ extension type InterpList(List<double> _) implements List<double> {
   }
 }
 
-List<Float64List> repeatAndTruncatePixels(List<Float64List> effectivePixels, int groupSize, int pixelCount) {
+List<Uint8List> repeatAndTruncatePixels(List<Uint8List> effectivePixels, int groupSize, int pixelCount) {
   if (effectivePixels.isEmpty || groupSize <= 0) {
     return [];
   }
-
-  // 1. Repetition (Equivalent to np.repeat(..., axis=0))
-  List<Float64List> repeatedPixels = [];
+  List<Uint8List> repeatedPixels = [];
 
   // Iterate through each row in the original array
-  for (final Float64List row in effectivePixels) {
+  for (final Uint8List row in effectivePixels) {
     // Repeat the current row 'groupSize' times
     for (int i = 0; i < groupSize; i++) {
-      // Add a reference to the row.
-      // NOTE: This creates a shallow copy (a new list of references
-      // to the same Float64List objects), which matches NumPy's behavior
-      // after a repeat operation if the result isn't explicitly copied/modified.
       repeatedPixels.add(row);
     }
   }
 
-  // 2. Truncation (Equivalent to [:pixel_count, :])
-  // Slice the resulting array to only keep the first 'pixel_count' rows.
-  // The Dart List.sublist method handles this perfectly.
-
+  // Truncation
+  // Slice the resulting array to only keep the first 'pixelCount' rows.
   int actualLength = repeatedPixels.length;
-
   if (pixelCount >= actualLength) {
-    // If pixel_count is larger than the repeated array size, return the full repeated array.
+    // If pixelCount is larger than the repeated array size, return the full repeated array.
     return repeatedPixels;
   } else {
-    // Return only the first 'pixel_count' rows.
+    // Return only the first 'pixelCount' rows.
     return repeatedPixels.sublist(0, pixelCount);
   }
 }

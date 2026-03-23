@@ -49,7 +49,7 @@ mixin GradientAudioEffect on Effect {
     final int N = y.length;
 
     // 1. Element-wise multiplication (Gradient (3 x N) * Intensity (1 x N))
-    // We multiply each of the 3 gradient rows by the 1D intensity vector 'y'.
+    // We multiply each of the 3 gradient rows (r,g,b) by the 1D intensity vector 'y'.
     List<List<double>> output = List.generate(3, (i) {
       final List<double> channel = gradient[i];
       final List<double> multipliedChannel = List<double>.filled(N, 0);

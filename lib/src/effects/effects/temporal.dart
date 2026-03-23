@@ -75,4 +75,7 @@ class RainbowEffect extends TemporalEffect {
     _hue = _hue + 0.01;
     return null;
   }
+
+  @override
+  void render() {}
 }

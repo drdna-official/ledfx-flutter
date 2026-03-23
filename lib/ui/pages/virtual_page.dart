@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ledfx/src/effects/effect.dart';
 import 'package:ledfx/src/virtual.dart';
 import 'package:ledfx/ui/pages/adaptive_layout.dart';
+import 'package:ledfx/ui/pages/segments_page.dart';
 import 'package:ledfx/worker.dart';
 
 class VirtualStripPage extends StatefulWidget {
@@ -13,6 +14,51 @@ class VirtualStripPage extends StatefulWidget {
 }
 
 class _VirtualStripPageState extends State<VirtualStripPage> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) return;
+        final navigator = _navigatorKey.currentState;
+        if (navigator != null && navigator.canPop()) {
+          navigator.pop();
+        }
+      },
+      child: Navigator(
+        key: _navigatorKey,
+        initialRoute: '/',
+        onGenerateRoute: (settings) {
+          WidgetBuilder builder;
+          switch (settings.name) {
+            case '/':
+              builder = (context) => VirtualStripList(layout: widget.layout);
+              break;
+            case '/segments':
+              final virtualID = settings.arguments as (String, String);
+              builder = (context) => SegmentsPage(virtualID: virtualID.$1, virtualName: virtualID.$2);
+              break;
+            default:
+              throw Exception('Invalid route: ${settings.name}');
+          }
+          return MaterialPageRoute(builder: builder, settings: settings);
+        },
+      ),
+    );
+  }
+}
+
+class VirtualStripList extends StatefulWidget {
+  const VirtualStripList({super.key, required this.layout});
+  final AdaptiveLayout layout;
+
+  @override
+  State<VirtualStripList> createState() => _VirtualStripListState();
+}
+
+class _VirtualStripListState extends State<VirtualStripList> {
   final LEDFxWorker ledfxWorker = LEDFxWorker.instance;
   final Map<String, bool> _expandedStates = {};
 
@@ -154,6 +200,18 @@ class _VirtualStripPageState extends State<VirtualStripPage> {
                                 children: [
                                   ElevatedButton.icon(
                                     onPressed: () {
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/segments',
+                                        arguments: (virtualID, virtualConfig.name),
+                                      );
+                                    },
+                                    label: Text("Edit Strip"),
+                                    icon: Icon(Icons.edit),
+                                  ),
+                                  SizedBox(height: 4),
+                                  ElevatedButton.icon(
+                                    onPressed: () {
                                       ledfxWorker.setVirtualEffect(
                                         v["id"],
                                         EffectConfig(
@@ -167,7 +225,6 @@ class _VirtualStripPageState extends State<VirtualStripPage> {
                                     label: Text("Add Effect"),
                                     icon: Icon(Icons.add),
                                   ),
-                                  SizedBox(height: 4),
                                 ],
                               ),
                             ),
@@ -185,7 +242,12 @@ class _VirtualStripPageState extends State<VirtualStripPage> {
         Positioned(
           bottom: 16,
           right: 16,
-          child: FloatingActionButton(shape: CircleBorder(), onPressed: _addVirtualForm, child: Icon(Icons.add)),
+          child: FloatingActionButton(
+            heroTag: "add_virtual_fab",
+            shape: CircleBorder(),
+            onPressed: _addVirtualForm,
+            child: Icon(Icons.add),
+          ),
         ),
       ],
     );

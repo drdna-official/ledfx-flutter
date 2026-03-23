@@ -1,9 +1,9 @@
-import 'package:ledfx/src/effects/audio_reactive/audio.dart';
+import 'package:ledfx/src/audio/audio.dart';
 import 'package:ledfx/src/effects/effect.dart';
 import 'package:ledfx/src/virtual.dart';
 import 'package:ledfx/utils/utils.dart';
 
-import 'mel_utils.dart';
+import '../audio/mel_utils.dart';
 
 mixin AudioReactiveEffect on Effect {
   AudioAnalysisSource? audio;
@@ -11,9 +11,9 @@ mixin AudioReactiveEffect on Effect {
   @override
   void activate(Virtual virtual) {
     super.activate(virtual);
-    ledfx.audio ??= AudioAnalysisSource(ledfx: ledfx);
-    audio = ledfx.audio;
-    ledfx.audio!.subscribe(_audioDataUpdated);
+    ledfx.audioSource ??= AudioAnalysisSource(ledfx: ledfx);
+    audio = ledfx.audioSource;
+    ledfx.audioSource!.subscribe(_audioDataUpdated);
   }
 
   @override

@@ -62,6 +62,9 @@ class _AdaptiveNavigationLayoutState extends State<AdaptiveNavigationLayout> {
   int _selectedIndex = 0;
   bool playing = false;
 
+  final GlobalKey _devicePageKey = GlobalKey(debugLabel: "device_page");
+  final GlobalKey _virtualPageKey = GlobalKey(debugLabel: "virtual_page");
+
   @override
   void initState() {
     super.initState();
@@ -86,7 +89,10 @@ class _AdaptiveNavigationLayoutState extends State<AdaptiveNavigationLayout> {
   @override
   Widget build(BuildContext context) {
     final currentLayout = getLayout();
-    final List<Widget> pages = [DevicePage(layout: currentLayout), VirtualStripPage(layout: currentLayout)];
+    final List<Widget> pages = [
+      DevicePage(key: _devicePageKey, layout: currentLayout),
+      VirtualStripPage(key: _virtualPageKey, layout: currentLayout)
+    ];
 
     ledfxWorker.infoSnackText.addListener(() {
       if (mounted) {
@@ -170,6 +176,7 @@ class _AdaptiveNavigationLayoutState extends State<AdaptiveNavigationLayout> {
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
+        heroTag: "play_pause_fab",
         shape: CircleBorder(),
         onPressed: () async {
           if (playing) {

@@ -57,7 +57,7 @@ class EffectConfig {
       'mirror': mirror,
       'brightness': brightness,
       'useBG': useBG,
-      'backgroudColor': backgroudColor.value,
+      'backgroudColor': backgroudColor.toARGB32(),
       'backgroundBrightness': backgroundBrightness,
       'diag': diag,
       'advanced': advanced,
@@ -92,8 +92,8 @@ abstract class Effect {
 
   double passed = 0.0;
 
-  bool _active = false;
-  bool get isActive => _active;
+  bool _isActive = false;
+  bool get isActive => _isActive;
 
   List<Float64List>? pixels;
 
@@ -110,7 +110,7 @@ abstract class Effect {
     if (this is EffectMixin) {
       (this as EffectMixin).onActivate(virtual.effectivePixelCount);
     }
-    _active = true;
+    _isActive = true;
   }
 
   void del() {
@@ -119,16 +119,22 @@ abstract class Effect {
 
   void deactivate() {
     pixels = null;
-    _active = false;
+    _isActive = false;
   }
 
-  void render() {}
+  void render();
 
-  List<Float64List>? getPixels() {
+  /// Returns the pixels of the effect in the format of [R,G,B]
+  /// each Uint8List is rgb values of a pixel clamped between 0 and 255
+  List<Uint8List>? getPixels() {
     if (virtual == null) return null;
     List<Float64List> tmpPixels = List.filled(virtual!.effectivePixelCount, Float64List(3));
     if (pixels != null) {
-      tmpPixels.copyFromList(pixels!);
+      try {
+        tmpPixels.copyFromList(pixels!);
+      } on ArgumentError {
+        return null;
+      }
       if (config.flip) tmpPixels = tmpPixels.reversed.toList();
 
       if (config.mirror) {
@@ -193,7 +199,9 @@ abstract class Effect {
         setPixelValueColumn(tmpPixels, 2, blurredB);
       }
 
-      return tmpPixels;
+      return tmpPixels
+          .map((pixelData) => Uint8List.fromList(pixelData.map((v) => v.toInt().clamp(0, 255)).toList()))
+          .toList();
     }
 
     return null;
@@ -203,7 +211,7 @@ abstract class Effect {
 class Effects {
   final LEDFx ledfx;
   Effects({required this.ledfx}) {
-    ledfx.audio = null;
+    ledfx.audioSource = null;
   }
 
   Effect create(Map<String, dynamic> effectData) {

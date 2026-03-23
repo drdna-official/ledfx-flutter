@@ -147,7 +147,11 @@ class _DevicePageState extends State<DevicePage> {
         Positioned(
           bottom: 16,
           right: 16,
-          child: FloatingActionButton(shape: CircleBorder(), onPressed: _addDeviceForm, child: Icon(Icons.add)),
+          child: FloatingActionButton(
+              heroTag: "add_device_fab",
+              shape: CircleBorder(),
+              onPressed: _addDeviceForm,
+              child: Icon(Icons.add)),
         ),
       ],
     );

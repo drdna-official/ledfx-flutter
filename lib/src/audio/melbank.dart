@@ -5,9 +5,9 @@ import 'dart:typed_data';
 import 'package:ledfx/ffi/aubio/aubio.dart';
 import 'package:ledfx/ffi/aubio/aubio_bindings.dart';
 import 'package:ledfx/src/core.dart';
-import 'package:ledfx/src/effects/audio_reactive/audio.dart';
-import 'package:ledfx/src/effects/audio_reactive/const.dart';
-import 'package:ledfx/src/effects/audio_reactive/mel_utils.dart';
+import 'package:ledfx/src/audio/audio.dart';
+import 'package:ledfx/src/audio/const.dart';
+import 'package:ledfx/src/audio/mel_utils.dart';
 import 'package:ledfx/utils/utils.dart';
 
 class MelbankConfig {
