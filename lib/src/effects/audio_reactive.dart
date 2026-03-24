@@ -24,8 +24,8 @@ mixin AudioReactiveEffect on Effect {
     super.deactivate();
   }
 
-  ExpFilter createFilter(double alphaDecay, double alphaRise) {
-    return ExpFilter(alphaDecay: alphaDecay, alphaRise: alphaRise);
+  MatrixExpFilter createFilter(double alphaDecay, double alphaRise) {
+    return MatrixExpFilter(alphaDecay: alphaDecay, alphaRise: alphaRise);
   }
 
   void _audioDataUpdated() {
@@ -130,6 +130,7 @@ mixin AudioReactiveEffect on Effect {
     }
   }
 
+  /// Returns the melbank in three parts: lows, mids, and highs.
   List<List<double>> melbankThirds({bool filtered = false, int? size}) {
     // melbank = self.melbank(**kwargs)
     final List<double> melbank = this.melbank(filtered: filtered, size: size);

@@ -225,6 +225,7 @@ class LEDFx {
       return;
     }
     virtual.setEffect(effectConfig);
+    updateCoreConfig();
     await saveConfig();
   }
 }

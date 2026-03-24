@@ -137,10 +137,10 @@ class Melbank {
   late int midsIndex;
   late int highsIndex;
 
-  late ExpFilter melGain;
-  late ExpFilter melSmoothing;
-  late ExpFilter commonFilter;
-  late ExpFilter diffFilter;
+  late NumExpFilter melGain;
+  late ListExpFilter melSmoothing;
+  late Float64ListExpFilter commonFilter;
+  late ListExpFilter diffFilter;
 
   Melbank({required this.audio, required this.config}) {
     powerFactor = tan(0.5 * pi * (config.peakIsolation + 1) / 2);
@@ -175,10 +175,10 @@ class Melbank {
     }
 
     // setup some of the common filters
-    melGain = ExpFilter(alphaDecay: 0.01, alphaRise: 0.99);
-    melSmoothing = ExpFilter(alphaDecay: 0.7, alphaRise: 0.99);
-    commonFilter = ExpFilter(alphaDecay: 0.99, alphaRise: 0.01);
-    diffFilter = ExpFilter(alphaDecay: 0.15, alphaRise: 0.99);
+    melGain = NumExpFilter(alphaDecay: 0.01, alphaRise: 0.99);
+    melSmoothing = ListExpFilter(alphaDecay: 0.7, alphaRise: 0.99);
+    commonFilter = Float64ListExpFilter(alphaDecay: 0.99, alphaRise: 0.01);
+    diffFilter = ListExpFilter(alphaDecay: 0.15, alphaRise: 0.99);
   }
   // computes the melbank curve for frequency domain .
   void execute(Pointer<cvec_t> freqDomain, Float64List melbank, Float64List filteredMelbank) {
@@ -190,7 +190,7 @@ class Melbank {
     }
     melGain.update(fastBlurArray(melbank, 1.0).maxOrZero());
 
-    final double gainValue = melGain.value.toDouble();
+    final double gainValue = melGain.value?.toDouble() ?? 0.0;
     for (int i = 0; i < melbank.length; i++) {
       // Check for near-zero division, which is crucial for stability
       if (gainValue.abs() > 1e-9) {
@@ -206,7 +206,7 @@ class Melbank {
     commonFilter.update(melbank);
 
     List<double> differenceArray = List<double>.generate(melbank.length, (i) {
-      return melbank[i] - commonFilter.value[i];
+      return melbank[i] - commonFilter.value![i];
     });
     List<double> diffFiltered = diffFilter.update(differenceArray);
     filteredMelbank.copyFromList(diffFiltered);

@@ -3,12 +3,14 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ledfx/src/core.dart';
+import 'package:ledfx/src/effects/effects/energy.dart';
 import 'package:ledfx/src/effects/effects/wavelength.dart';
 import 'package:ledfx/utils/utils.dart';
 import 'package:ledfx/src/virtual.dart';
 
 enum EffectType {
   wavelength,
+  energy,
   unknown;
 
   static EffectType fromName(String name) {
@@ -17,6 +19,7 @@ enum EffectType {
 
   String get fullName => switch (name) {
     "wavelength" => "Wavelength",
+    "energy" => "Energy",
     _ => name,
   };
 }
@@ -33,6 +36,11 @@ class EffectConfig {
   double backgroundBrightness;
   bool diag;
   bool advanced;
+  String? mixMode;
+  double? filterSensitiviy;
+  Color? lowsColor;
+  Color? midsColor;
+  Color? highColor;
 
   EffectConfig({
     required this.name,
@@ -46,6 +54,11 @@ class EffectConfig {
     this.backgroundBrightness = 1.0,
     this.diag = false,
     this.advanced = false,
+    this.mixMode,
+    this.filterSensitiviy,
+    this.lowsColor,
+    this.midsColor,
+    this.highColor,
   });
 
   Map<String, dynamic> toJson() {
@@ -61,6 +74,11 @@ class EffectConfig {
       'backgroundBrightness': backgroundBrightness,
       'diag': diag,
       'advanced': advanced,
+      'mixMode': mixMode,
+      'decaySensitivity': filterSensitiviy,
+      'lowsColor': lowsColor?.toARGB32(),
+      'midsColor': midsColor?.toARGB32(),
+      'highColor': highColor?.toARGB32(),
     };
   }
 
@@ -77,6 +95,11 @@ class EffectConfig {
       backgroundBrightness: json['backgroundBrightness'] ?? 1.0,
       diag: json['diag'] ?? false,
       advanced: json['advanced'] ?? false,
+      mixMode: json['mixMode'],
+      filterSensitiviy: json['decaySensitivity'],
+      lowsColor: json['lowsColor'] != null ? Color(json['lowsColor']) : null,
+      midsColor: json['midsColor'] != null ? Color(json['midsColor']) : null,
+      highColor: json['highColor'] != null ? Color(json['highColor']) : null,
     );
   }
 }
@@ -221,6 +244,9 @@ class Effects {
     switch (effectConfig.type) {
       case EffectType.wavelength:
         effect = WavelengthEffect(ledfx: ledfx, config: effectConfig);
+        break;
+      case EffectType.energy:
+        effect = EnergyEffect(ledfx: ledfx, config: effectConfig);
         break;
       case EffectType.unknown:
         effect = null;

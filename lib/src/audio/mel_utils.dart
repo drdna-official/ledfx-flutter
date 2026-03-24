@@ -120,98 +120,167 @@ List<double> smooth(List<double> x, double sigma) {
 /// This filter is designed to smooth a numeric stream, applying a faster
 /// smoothing factor (alpha_rise) when the new value is increasing, and a
 /// slower factor (alpha_decay) when the new value is decreasing.
-class ExpFilter {
-  // Constants for the smoothing factors
+
+/// Abstract base class for type-safe, zero-allocation exponential smoothing.
+abstract class ExpFilter<T> {
   final double alphaDecay;
   final double alphaRise;
 
-  // The smoothed value (can hold a single number or a list/typed array)
-  dynamic value;
+  // Pre-calculated to save CPU cycles in the hot loop
+  final double _invAlphaDecay;
+  final double _invAlphaRise;
 
-  /// Constructor for ExpFilter.
-  ///
-  /// Throws an [ArgumentError] if the smoothing factors are out of the
-  /// valid range (0.0 to 1.0, non-inclusive).
-  ExpFilter({dynamic val, this.alphaDecay = 0.5, this.alphaRise = 0.5}) {
+  T? _value;
+
+  ExpFilter({T? initialValue, this.alphaDecay = 0.5, this.alphaRise = 0.5})
+    : _invAlphaDecay = 1.0 - alphaDecay,
+      _invAlphaRise = 1.0 - alphaRise {
     if (alphaDecay <= 0.0 || alphaDecay >= 1.0) {
-      throw ArgumentError("Invalid decay smoothing factor: must be between 0.0 and 1.0 (exclusive)");
+      throw ArgumentError("Decay must be between 0.0 and 1.0 (exclusive)");
     }
     if (alphaRise <= 0.0 || alphaRise >= 1.0) {
-      throw ArgumentError("Invalid rise smoothing factor: must be between 0.0 and 1.0 (exclusive)");
+      throw ArgumentError("Rise must be between 0.0 and 1.0 (exclusive)");
     }
-    value = val;
+    _value = initialValue;
   }
 
-  /// Updates the smoothed value with a new reading.
-  ///
-  /// The [value] parameter can be a single [double] or a [List<double>] (or a typed array).
-  ///
-  /// Returns the newly smoothed value.
-  dynamic update(dynamic newValue) {
-    // 1. Handle deferred initialization (if self.value is None)
-    if (value == null) {
-      value = newValue;
-      return value;
+  /// Returns the current smoothed state.
+  // ignore: unnecessary_getters_setters
+  T? get value => _value;
+  void reset() => _value = null;
+
+  /// Updates the filter and returns the new smoothed value.
+  T update(T newValue);
+}
+
+// ============================================================================
+// 1. Single Number Implementation
+// ============================================================================
+class NumExpFilter extends ExpFilter<double> {
+  NumExpFilter({num? initialValue, super.alphaDecay, super.alphaRise}) : super(initialValue: initialValue?.toDouble());
+
+  @override
+  double update(double newValue) {
+    if (_value == null) {
+      _value = newValue;
+      return _value!;
     }
 
-    // 2. Handle array/list update
-    if (value is List<double> || value is Float64List || value is Float64List) {
-      // Dart requires converting to a typed list for efficient element-wise operation
-      final List<double> currentValueList = List<double>.from(value);
-      final List<double> newValueList = List<double>.from(newValue);
+    final double current = _value!;
+    if (newValue > current) {
+      _value = alphaRise * newValue + _invAlphaRise * current;
+    } else {
+      _value = alphaDecay * newValue + _invAlphaDecay * current;
+    }
+    return _value!;
+  }
+}
 
-      // Ensure lengths match to prevent errors
-      if (currentValueList.length != newValueList.length) {
-        throw ArgumentError("New value list must match the size of the current value list.");
+// ============================================================================
+// 2. Float64List Implementation (Highest Performance for 1D Arrays)
+// ============================================================================
+class Float64ListExpFilter extends ExpFilter<Float64List> {
+  Float64ListExpFilter({super.initialValue, super.alphaDecay, super.alphaRise});
+
+  @override
+  Float64List update(Float64List newValue) {
+    if (_value == null) {
+      // Create a discrete copy so we don't accidentally mutate the user's input array
+      _value = Float64List.fromList(newValue);
+      return _value!;
+    }
+
+    final current = _value!;
+    final int len = current.length;
+
+    assert(len == newValue.length, "Lengths must match");
+
+    // Hot loop: No memory allocation, pure math.
+    for (int i = 0; i < len; i++) {
+      final double c = current[i];
+      final double n = newValue[i];
+
+      if (n > c) {
+        current[i] = alphaRise * n + _invAlphaRise * c;
+      } else {
+        current[i] = alphaDecay * n + _invAlphaDecay * c;
       }
+    }
 
-      final List<double> alphaList = [];
+    return current;
+  }
+}
 
-      for (int i = 0; i < currentValueList.length; i++) {
-        // Calculate element-wise alpha
-        if (newValueList[i] > currentValueList[i]) {
-          alphaList.add(alphaRise); // rise smoothing
+// ============================================================================
+// 3. Standard List<double> Implementation
+// ============================================================================
+class ListExpFilter extends ExpFilter<List<double>> {
+  ListExpFilter({super.initialValue, super.alphaDecay, super.alphaRise});
+
+  @override
+  List<double> update(List<double> newValue) {
+    if (_value == null) {
+      _value = List<double>.from(newValue); // Copy
+      return _value!;
+    }
+
+    final current = _value!;
+    final int len = current.length;
+
+    assert(len == newValue.length, "Lengths must match");
+
+    for (int i = 0; i < len; i++) {
+      final double c = current[i];
+      final double n = newValue[i];
+
+      if (n > c) {
+        current[i] = alphaRise * n + _invAlphaRise * c;
+      } else {
+        current[i] = alphaDecay * n + _invAlphaDecay * c;
+      }
+    }
+
+    return current;
+  }
+}
+
+// ============================================================================
+// 4. Matrix (List<Float64List>) Implementation
+// ============================================================================
+class MatrixExpFilter extends ExpFilter<List<Float64List>> {
+  MatrixExpFilter({super.initialValue, super.alphaDecay, super.alphaRise});
+
+  @override
+  List<Float64List> update(List<Float64List> newValue) {
+    if (_value == null) {
+      // Deep copy all rows
+      _value = newValue.map((row) => Float64List.fromList(row)).toList();
+      return _value!;
+    }
+
+    final currentMatrix = _value!;
+    final int rows = currentMatrix.length;
+
+    assert(rows == newValue.length, "Row counts must match");
+
+    for (int r = 0; r < rows; r++) {
+      final Float64List currentRow = currentMatrix[r];
+      final Float64List newRow = newValue[r];
+      final int cols = currentRow.length;
+
+      // Nested hot loop
+      for (int c = 0; c < cols; c++) {
+        final double currVal = currentRow[c];
+        final double newVal = newRow[c];
+
+        if (newVal > currVal) {
+          currentRow[c] = alphaRise * newVal + _invAlphaRise * currVal;
         } else {
-          alphaList.add(alphaDecay); // decay smoothing
+          currentRow[c] = alphaDecay * newVal + _invAlphaDecay * currVal;
         }
       }
-
-      // Perform element-wise exponential smoothing (value = alpha * value + (1.0 - alpha) * self.value)
-      final List<double> smoothedList = List.generate(currentValueList.length, (i) {
-        final double alpha = alphaList[i];
-        final double current = currentValueList[i];
-        final double new_ = newValueList[i];
-        return alpha * new_ + (1.0 - alpha) * current;
-      });
-
-      // Update the internal value with the same type it started with
-      if (value is Float64List) {
-        value = Float64List.fromList(smoothedList);
-      } else if (value is Float64List) {
-        value = Float64List.fromList(smoothedList);
-      } else {
-        value = smoothedList;
-      }
-
-      return value;
-    }
-    // 3. Handle single number update (equivalent to the 'else' block)
-    else if (value is num && newValue is num) {
-      final double alpha;
-      if (newValue > value) {
-        alpha = alphaRise;
-      } else {
-        alpha = alphaDecay;
-      }
-
-      // Exponential smoothing formula
-      value = alpha * newValue.toDouble() + (1.0 - alpha) * value.toDouble();
-      return value;
     }
 
-    // Handle unsupported type combinations
-    throw ArgumentError(
-      "Unsupported types for update: Current value is ${value.runtimeType}, New value is ${newValue.runtimeType}",
-    );
+    return currentMatrix;
   }
 }

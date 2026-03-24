@@ -368,21 +368,17 @@ class Virtual {
       debugPrint("can not set effect, no active device");
     }
 
+    isActive = false;
+
     final effect = ledfx.effects.create(effectData);
 
     if (fallback != null) {}
 
-    if (_activeEffect != null) {
-      _activeEffect!.deactivate();
-    }
-
+    clearActiveEffect();
     _activeEffect = effect;
     _activeEffect!.activate(this);
     // TODO:
     // ledfx.events.fireEvent(EffectSetEvent);
-
-    // Update Core Config -  Virtual Effect
-    ledfx.updateCoreConfig();
 
     try {
       isActive = true;
@@ -565,7 +561,7 @@ class Virtuals with Iterable<MapEntry<String, Virtual>> {
         virtual.setEffect(effectData);
       }
 
-      virtual.isActive = active ?? false;
+      if (!active) virtual.isActive = false;
 
       if (pauseAll) virtual._paused = true;
     }

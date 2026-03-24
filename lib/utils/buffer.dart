@@ -24,29 +24,40 @@ class CircularBuffer<T extends Object> {
     }
   }
 
+  void appendLeft(T item) {
+    int currentStart = (_head - _currentLength + maxLength) % maxLength;
+    int newStart = (currentStart - 1 + maxLength) % maxLength;
+    _buffer[newStart] = item;
+    if (_currentLength < maxLength) {
+      _currentLength++;
+    } else {
+      _head = (_head - 1 + maxLength) % maxLength;
+    }
+  }
+
   /// Returns the actual number of elements currently in the buffer.
   int get length => _currentLength;
 
   /// Returns the contents of the buffer as a List`<T>`, ordered from oldest to newest.
   List<T> toList() {
-    if (_currentLength == 0) {
-      return <T>[];
-    }
+    if (_currentLength == 0) return <T>[];
 
-    final List<T> result = List<T>.filled(_currentLength, _buffer[0] as T);
-
-    // The starting index for reading is the oldest element, which is the
-    // element *after* the current head (where the next write will happen).
     int readStart = (_head - _currentLength + maxLength) % maxLength;
 
-    for (int i = 0; i < _currentLength; i++) {
+    // Use List.generate to avoid null-pointer issues during initialization
+    return List<T>.generate(_currentLength, (i) {
       int bufferIndex = (readStart + i) % maxLength;
-      // We know these elements are non-null because we track _currentLength
-      // and only append non-null T objects.
-      result[i] = _buffer[bufferIndex] as T;
-    }
+      return _buffer[bufferIndex]!;
+    });
+  }
 
-    return result;
+  T get(int index) {
+    if (index < 0 || index >= _currentLength) {
+      throw RangeError('Index out of bounds');
+    }
+    int readStart = (_head - _currentLength + maxLength) % maxLength;
+    int bufferIndex = (readStart + index) % maxLength;
+    return _buffer[bufferIndex]!;
   }
 }
 

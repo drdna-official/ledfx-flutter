@@ -54,9 +54,9 @@ abstract class AudioInputSource {
   }
 
   double _volume = -90.0;
-  final ExpFilter _volumeFilter = ExpFilter(val: -90.0, alphaDecay: 0.99, alphaRise: 0.99);
+  final NumExpFilter _volumeFilter = NumExpFilter(initialValue: -90.0, alphaDecay: 0.99, alphaRise: 0.99);
   double volume({bool filtered = true}) {
-    return filtered ? _volumeFilter.value : _volume;
+    return filtered ? _volumeFilter.value! : _volume;
   }
 
   late Pointer<aubio_filter_t> preEmphasis;
@@ -352,15 +352,16 @@ class AudioAnalysisSource extends AudioInputSource {
   late int beatPeriod;
   // freq power
   late List<double> freqPowerRaw;
-  late ExpFilter freqPowerFilter;
+  late ListExpFilter freqPowerFilter;
   late List<int> freqMelIndexs;
   // volume based beat detection
   late int beatMaxMelIndex;
   final double beatMinPercentDiff = 0.5;
-  final Duration beatMinTimeScince = Duration(milliseconds: 100);
+  final double beatMinAmplitude = 0.5;
+  final int beatMinTimeScince = 100;
   late int beatPowerHistoryLen;
-  late DateTime beatPreviousTime;
-  late CircularBuffer<int> beatPowerHistory;
+  late int beatPreviousTime;
+  late CircularBuffer<double> beatPowerHistory;
 
   AudioAnalysisSource({
     required super.ledfx,
@@ -402,8 +403,8 @@ class AudioAnalysisSource extends AudioInputSource {
     beatPeriod = 2;
     //freq power
     freqPowerRaw = List.filled(freqMaxMels.length, 0.0, growable: false);
-    freqPowerFilter = ExpFilter(
-      val: List.filled(freqMaxMels.length, 0.0, growable: false),
+    freqPowerFilter = ListExpFilter(
+      initialValue: List.filled(freqMaxMels.length, 0.0, growable: false),
       alphaDecay: 0.2,
       alphaRise: 0.97,
     );
@@ -419,6 +420,7 @@ class AudioAnalysisSource extends AudioInputSource {
     beatMaxMelIndex = (tmpIndex == -1) ? melbanks.melbankProcessors[0].melbankFreqs.last : tmpIndex - 1;
     beatPowerHistoryLen = beatPowerHistoryLen = (sampleRate * 0.2).toInt();
     beatPowerHistory = CircularBuffer(beatPowerHistoryLen);
+    beatPreviousTime = DateTime.now().millisecondsSinceEpoch;
   }
 
   @override
@@ -451,7 +453,33 @@ class AudioAnalysisSource extends AudioInputSource {
 
   // void barOscillator() {}
 
-  // void volumeBeatNow() {}
+  bool volumeBeatNow() {
+    final timeNow = DateTime.now().millisecondsSinceEpoch;
+    final melbank = melbanks.melbanks[0].getRange(0, beatMaxMelIndex + 1).toList();
+    final beatPower = (melbank.isEmpty) ? 0.0 : melbank.reduce((a, b) => a + b);
+    final melbankMax = melbank.maxOrZero();
+
+    late double difference;
+    final beatPowerHistorySum = (beatPowerHistory.toList().isEmpty)
+        ? 0.0
+        : beatPowerHistory.toList().reduce((a, b) => a + b);
+    if (beatPowerHistorySum > 0) {
+      difference = (beatPower * beatPowerHistoryLen) / beatPowerHistorySum - 1;
+    } else {
+      difference = 0;
+    }
+
+    beatPowerHistory.appendLeft(beatPower);
+
+    if (difference >= beatMinPercentDiff &&
+        melbankMax >= beatMinAmplitude &&
+        timeNow - beatPreviousTime > beatMinTimeScince) {
+      beatPreviousTime = timeNow;
+      return true;
+    } else {
+      return false;
+    }
+  }
 
   // void freqPower() {}
 }
