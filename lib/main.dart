@@ -25,6 +25,14 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  late Future<void> _initFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _initFuture = LEDFxWorker.instance.init();
+  }
+
   @override
   void dispose() {
     LEDFxWorker.instance.dispose();
@@ -58,11 +66,14 @@ class _MyAppState extends State<MyApp> {
         child: Scaffold(
           body: Center(
             child: FutureBuilder(
-              future: LEDFxWorker.instance.init(),
+              future: _initFuture,
               builder: (BuildContext context, AsyncSnapshot<void> snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                    child: Column(children: [CircularProgressIndicator(), Text('Connecting to Background Isolate')]),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [CircularProgressIndicator(), Text('Connecting to Background Isolate')],
+                    ),
                   );
                 } else if (snapshot.hasError) {
                   return Center(

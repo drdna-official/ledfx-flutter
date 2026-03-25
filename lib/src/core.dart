@@ -171,6 +171,22 @@ class LEDFx {
     }
   }
 
+  Future<void> updateVirtualConfig(String virtualID, VirtualConfig config) async {
+    final virtual = virtuals.get(virtualID);
+    if (virtual == null) {
+      debugPrint("Virtual not found: $virtualID");
+      return;
+    }
+    try {
+      virtual.updateConfig(config);
+      updateCoreConfig();
+      await saveConfig();
+    } catch (e) {
+      debugPrint("Failed to Create Virtual Strip: $e");
+      rethrow;
+    }
+  }
+
   // Update This Virtual's Segments
   Future<void> updateVirtualSegments(String virtualID, List<SegmentConfig> segments) async {
     final virtual = virtuals.get(virtualID);

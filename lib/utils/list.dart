@@ -117,38 +117,99 @@ extension ListExtension<T> on List<T> {
 }
 
 extension type InterpList(List<double> _) implements List<double> {
-  /// Factory for linear interpolation (equivalent to np.interp)
-  /// [x] is the new coordinate sequence, [xp] is original coordinates, [fp] is original values.
+  /// General linear interpolation (equivalent to np.interp).
+  /// [x]: Coordinates at which to evaluate the interpolated values.
+  /// [xp]: The x-coordinates of the data points, must be increasing.
+  /// [fp]: The y-coordinates of the data points, same length as [xp].
   factory InterpList.linear(List<double> x, List<double> xp, List<double> fp) {
     if (fp.isEmpty) return InterpList([]);
     if (fp.length == 1) return InterpList(List.filled(x.length, fp[0]));
 
+    assert(xp.length == fp.length, "xp and fp must have the same length");
+
     final int nXp = xp.length;
-    final double xpStart = xp[0];
-    final double xpStep = nXp > 1 ? xp[1] - xp[0] : 1.0;
 
     final result = List<double>.generate(x.length, (index) {
       final double targetX = x[index];
 
-      // Calculate fractional index
-      final double indexF = (targetX - xpStart) / xpStep;
-      final int i = indexF.floor();
+      // 1. Handle Out-of-Bounds (Clamping)
+      if (targetX <= xp[0]) return fp[0];
+      if (targetX >= xp[nXp - 1]) return fp[nXp - 1];
 
-      // Clamping bounds
-      if (i < 0) return fp[0];
-      if (i >= nXp - 1) return fp[nXp - 1];
+      // 2. Find the interval [i, i+1] such that xp[i] <= targetX < xp[i+1]
+      // Using binary search for non-linear xp sequences.
+      int i = _binarySearch(xp, targetX);
 
-      // Linear interpolation: y = y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+      // 3. Perform Linear Interpolation
       final double x0 = xp[i];
       final double x1 = xp[i + 1];
       final double y0 = fp[i];
       final double y1 = fp[i + 1];
+
+      // Avoid division by zero if xp has duplicate points
+      if (x1 == x0) return y0;
 
       return y0 + (y1 - y0) * (targetX - x0) / (x1 - x0);
     });
 
     return InterpList(result);
   }
+
+  /// Helper to find the index of the largest value in [list] <= [target]
+  static int _binarySearch(List<double> list, double target) {
+    int low = 0;
+    int high = list.length - 2; // We want the left index of the pair
+
+    while (low <= high) {
+      int mid = low + ((high - low) >> 1);
+      if (list[mid] <= target && target < list[mid + 1]) {
+        return mid;
+      } else if (list[mid] < target) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return low;
+  }
+}
+
+/// Interpolates pixels in one pass.
+List<Uint8List> interpolatePixels(List<Uint8List> pixels, int newLength, int step) {
+  if (pixels.length == newLength && step == 1) {
+    return pixels;
+  }
+
+  // Calculate how many items will be in the final list
+  final int steppedLength = (newLength / step).ceil();
+  final List<Uint8List> result = List.generate(steppedLength, (_) => Uint8List(3), growable: false);
+
+  final int oldLen = pixels.length;
+
+  for (int i = 0; i < steppedLength; i++) {
+    int targetIdx = i * step;
+
+    // Map new index back to old index space
+    double relativePos = targetIdx * (oldLen - 1) / (newLength - 1);
+
+    int lowerIdx = relativePos.floor();
+    int upperIdx = relativePos.ceil();
+    double t = relativePos - lowerIdx;
+
+    final Uint8List pLower = pixels[lowerIdx];
+    final Uint8List pUpper = pixels[upperIdx];
+    final Uint8List target = result[i];
+
+    // Linear Interpolation with rounding for Uint8 compatibility
+    // formula: (a * (1 - t) + b * t)
+    final double invT = 1.0 - t;
+
+    target[0] = (pLower[0] * invT + pUpper[0] * t).round(); // R
+    target[1] = (pLower[1] * invT + pUpper[1] * t).round(); // G
+    target[2] = (pLower[2] * invT + pUpper[2] * t).round(); // B
+  }
+
+  return result;
 }
 
 List<Uint8List> repeatAndTruncatePixels(List<Uint8List> effectivePixels, int groupSize, int pixelCount) {

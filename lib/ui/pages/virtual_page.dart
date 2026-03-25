@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:ledfx/src/effects/effect.dart';
 import 'package:ledfx/src/virtual.dart';
 import 'package:ledfx/ui/pages/adaptive_layout.dart';
+import 'package:ledfx/ui/pages/effect_page.dart';
 import 'package:ledfx/ui/pages/segments_page.dart';
 import 'package:ledfx/worker.dart';
 
@@ -39,6 +39,10 @@ class _VirtualStripPageState extends State<VirtualStripPage> {
             case '/segments':
               final virtualID = settings.arguments as (String, String);
               builder = (context) => SegmentsPage(virtualID: virtualID.$1, virtualName: virtualID.$2);
+              break;
+            case '/effect':
+              final virtualID = settings.arguments as (String, String);
+              builder = (context) => EffectPage(virtualID: virtualID.$1, virtualName: virtualID.$2);
               break;
             default:
               throw Exception('Invalid route: ${settings.name}');
@@ -210,37 +214,17 @@ class _VirtualStripListState extends State<VirtualStripList> {
                                     icon: Icon(Icons.edit),
                                   ),
                                   SizedBox(height: 4),
-                                  DropdownButton<EffectType>(
-                                    value: v["activeEffect"] != null
-                                        ? EffectType.fromName(v["activeEffect"]["name"])
-                                        : null,
-                                    items: EffectType.values.where((v) => v != EffectType.unknown).map((effect) {
-                                      return DropdownMenuItem<EffectType>(value: effect, child: Text(effect.fullName));
-                                    }).toList(),
-                                    onChanged: (effect) {
-                                      if (effect != null) {
-                                        ledfxWorker.setVirtualEffect(
-                                          v["id"],
-                                          EffectConfig(name: effect.name, type: effect, mirror: true, blur: 3.0),
-                                        );
-                                      }
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/effect',
+                                        arguments: (virtualID, virtualConfig.name),
+                                      );
                                     },
+                                    label: Text("Edit Effect"),
+                                    icon: Icon(Icons.edit),
                                   ),
-                                  // ElevatedButton.icon(
-                                  //   onPressed: () {
-                                  //     ledfxWorker.setVirtualEffect(
-                                  //       v["id"],
-                                  //       EffectConfig(
-                                  //         name: "wavelength",
-                                  //         type: EffectType.wavelength,
-                                  //         mirror: true,
-                                  //         blur: 3.0,
-                                  //       ),
-                                  //     );
-                                  //   },
-                                  //   label: Text("Add Effect"),
-                                  //   icon: Icon(Icons.add),
-                                  // ),
                                 ],
                               ),
                             ),

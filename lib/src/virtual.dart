@@ -97,13 +97,37 @@ class SegmentConfig {
 }
 
 class Virtual {
-  Virtual({required this.id, required this.config, required this.ledfx}) {
+  Virtual({required this.id, required VirtualConfig config, required this.ledfx}) {
+    _config = config;
     freqRange = (config.minFreq, config.maxFreq);
   }
 
   final String id;
   final LEDFx ledfx;
-  final VirtualConfig config;
+  late VirtualConfig _config;
+  VirtualConfig get config => _config;
+  set config(VirtualConfig newConfig) {
+    final oldConfig = config;
+    _config = newConfig;
+
+    bool effectReactivate = false;
+    if (config.segmentMapping != oldConfig.segmentMapping) {
+      invalidateCache();
+      effectReactivate = true;
+    }
+    if (config.transitionMode != oldConfig.transitionMode || config.transitionTime != oldConfig.transitionTime) {
+      // TODO: Set Frame Transition
+    }
+    // TODO: Freqency related updates
+
+    if (effectReactivate) {
+      reactivateEffect();
+    }
+  }
+
+  void updateConfig(VirtualConfig config) {
+    this.config = config;
+  }
 
   String get name => config.name;
   String get deviceID => config.deviceID;
@@ -251,6 +275,8 @@ class Virtual {
           // renderCalibration(data, device, segments, deviceID);
         } else if (config.segmentMapping == "span") {
           // span - the pixel strip are sliced to all segments
+          pixels = effectiveToPhysicalPixels(pixels!);
+
           for (final (vStart, vStop, step, devStart, devEnd) in segments) {
             final seg = pixels!.slice(start: vStart, stop: vStop, step: step);
             data.add((seg, devStart, devEnd));
@@ -260,8 +286,7 @@ class Virtual {
           for (final (vStart, vStop, step, devStart, devEnd) in segments) {
             final targetPhysicalLen = devEnd - devStart + 1;
             final targetEffectLen = _getEffectivePixelCount(targetPhysicalLen);
-            var seg = pixels!.slice(start: vStart, stop: vStop, step: step);
-
+            var seg = interpolatePixels(pixels!, targetEffectLen, step);
             seg = effectiveToPhysicalPixels(seg, targetEffectLen);
             data.add((seg, devStart, devEnd));
           }

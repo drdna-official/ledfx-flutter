@@ -18,7 +18,8 @@ void backgroundAudioProcessing() async {
   // Setup receiving port for UI commands IMMEDIATELY so the UI doesn't hang
   final ReceivePort bgReceivePort = ReceivePort();
   IsolateNameServer.removePortNameMapping("ledfx_bg_port");
-  IsolateNameServer.registerPortWithName(bgReceivePort.sendPort, "ledfx_bg_port");
+  final registered = IsolateNameServer.registerPortWithName(bgReceivePort.sendPort, "ledfx_bg_port");
+  debugPrint("Background Worker: Port ledfx_bg_port registered: $registered");
 
   try {
     // Storage initialization
@@ -39,6 +40,7 @@ void backgroundAudioProcessing() async {
     bgReceivePort.listen((message) async {
       if (message is Map<String, dynamic>) {
         final cmd = message["cmd"];
+        debugPrint("Background Worker: Received command: $cmd");
         switch (cmd) {
           case "request_state":
             _sendStateToUI(ledfx);
@@ -94,6 +96,15 @@ void backgroundAudioProcessing() async {
               debugPrint("Failed: ${e.toString()}");
             }
             break;
+          case "update_virtual_config":
+            try {
+              final vId = message["virtualId"];
+              final config = message["config"] as Map<String, dynamic>;
+              await ledfx.updateVirtualConfig(vId, VirtualConfig.fromJson(config));
+            } catch (e) {
+              debugPrint("Failed: ${e.toString()}");
+            }
+            break;
           case "set_virtual_effect":
             try {
               final vId = message["virtualId"];
@@ -116,9 +127,13 @@ void backgroundAudioProcessing() async {
 
     AudioBridge.instance.events.listen((event) {
       if (event is StateEvent) {
-        debugPrint("Background Worker: ${event.value}");
+        debugPrint("Background Worker: Audio state changed to ${event.value}");
         final uiPort = IsolateNameServer.lookupPortByName("ledfx_ui_port");
-        uiPort?.send({"event": "audio_state", "isCapturing": event.value == "recording_started"});
+        if (uiPort != null) {
+          uiPort.send({"event": "audio_state", "isCapturing": event.value == "recording_started"});
+        } else {
+          debugPrint("Background Worker: WARNING - Cannot send audio state, ledfx_ui_port not found.");
+        }
       }
     });
   } catch (e, stacktrace) {
@@ -128,6 +143,7 @@ void backgroundAudioProcessing() async {
 }
 
 void _sendStateToUI(LEDFx ledfx) {
+  debugPrint("Background Worker: Sending state update to UI...");
   final uiPort = IsolateNameServer.lookupPortByName("ledfx_ui_port");
   if (uiPort != null) {
     final state = {
@@ -147,6 +163,8 @@ void _sendStateToUI(LEDFx ledfx) {
     };
 
     uiPort.send(state);
+  } else {
+    debugPrint("Background Worker: ERROR - ledfx_ui_port not found. UI will not receive state update.");
   }
 }
 
@@ -157,5 +175,7 @@ void _sendInfoToUI(String message) {
       "event": "info",
       "info": {"message": message},
     });
+  } else {
+    debugPrint("Background Worker: WARNING - ledfx_ui_port not found for info message: $message");
   }
 }

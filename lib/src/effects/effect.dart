@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/src/effects/effects/energy.dart';
+import 'package:ledfx/src/effects/effects/temporal.dart';
 import 'package:ledfx/src/effects/effects/wavelength.dart';
 import 'package:ledfx/utils/utils.dart';
 import 'package:ledfx/src/virtual.dart';
@@ -11,6 +12,7 @@ import 'package:ledfx/src/virtual.dart';
 enum EffectType {
   wavelength,
   energy,
+  rainbow,
   unknown;
 
   static EffectType fromName(String name) {
@@ -20,6 +22,7 @@ enum EffectType {
   String get fullName => switch (name) {
     "wavelength" => "Wavelength",
     "energy" => "Energy",
+    "rainbow" => "Rainbow",
     _ => name,
   };
 }
@@ -247,6 +250,9 @@ class Effects {
         break;
       case EffectType.energy:
         effect = EnergyEffect(ledfx: ledfx, config: effectConfig);
+        break;
+      case EffectType.rainbow:
+        effect = RainbowEffect(ledfx: ledfx, config: effectConfig);
         break;
       case EffectType.unknown:
         effect = null;

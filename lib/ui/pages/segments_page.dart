@@ -38,51 +38,80 @@ class _SegmentsPageState extends State<SegmentsPage> {
               : (virtualData["segments"] as List<dynamic>)
                     .map((e) => SegmentConfig.fromJson(e as Map<String, dynamic>))
                     .toList();
-          return ListView.separated(
-            itemCount: segments.length,
-            padding: const EdgeInsets.all(8),
-            separatorBuilder: (context, index) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final segment = segments[index];
-              return Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: Colors.black.withOpacity(0.5),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+
+          final configData = virtualData["config"] as Map<String, dynamic>;
+          final virtualConfig = VirtualConfig.fromJson(configData);
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Text("Change Mode"),
+                    SegmentedButton(
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment(value: "span", label: Text("Span")),
+                        ButtonSegment(value: "copy", label: Text("Copy")),
+                      ],
+                      selected: {virtualConfig.segmentMapping},
+                      onSelectionChanged: (v) {
+                        virtualConfig.segmentMapping = v.first;
+                        ledfxWorker.updateVirtualConfig(widget.virtualID, virtualConfig);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              ListView.separated(
+                shrinkWrap: true,
+                itemCount: segments.length,
+                padding: const EdgeInsets.all(8),
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final segment = segments[index];
+                  return Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.black.withValues(alpha: 0.5),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            devices[segment.deviceID]?.name ?? "Unknown Device",
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () => _editSegmentForm(devices, segment, index),
+                            Expanded(
+                              child: Text(
+                                devices[segment.deviceID]?.name ?? "Unknown Device",
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () => _deleteSegment(segment, index),
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit),
+                                  onPressed: () => _editSegmentForm(devices, segment, index),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete),
+                                  onPressed: () => _deleteSegment(segment, index),
+                                ),
+                              ],
                             ),
                           ],
                         ),
+                        Text("Start: ${segment.start}"),
+                        Text("End: ${segment.end}"),
+                        Text("Reversed: ${segment.inverted ? 'yes' : 'no'}"),
                       ],
                     ),
-                    Text("Start: ${segment.start}"),
-                    Text("End: ${segment.end}"),
-                    Text("Reversed: ${segment.inverted ? 'yes' : 'no'}"),
-                  ],
-                ),
-              );
-            },
+                  );
+                },
+              ),
+            ],
           );
         },
       ),
@@ -140,10 +169,17 @@ class _SegmentsPageState extends State<SegmentsPage> {
                 .map((e) => SegmentConfig.fromJson(e as Map<String, dynamic>))
                 .toList();
 
-            final bool overlaps = selectedDeviceID != null &&
-                currentSegments.asMap().entries.where((entry) => entry.key != editIndex && entry.value.deviceID == selectedDeviceID).any(
-                  (entry) => (entry.value.start <= currentRange.end.round() && entry.value.end >= currentRange.start.round()),
-                );
+            final bool overlaps =
+                selectedDeviceID != null &&
+                currentSegments
+                    .asMap()
+                    .entries
+                    .where((entry) => entry.key != editIndex && entry.value.deviceID == selectedDeviceID)
+                    .any(
+                      (entry) =>
+                          (entry.value.start <= currentRange.end.round() &&
+                          entry.value.end >= currentRange.start.round()),
+                    );
 
             return Center(
               child: ConstrainedBox(
@@ -299,9 +335,9 @@ class _SegmentsPageState extends State<SegmentsPage> {
                                             ledfxWorker.updateVirtualSegments(widget.virtualID, currentSegments);
                                             Navigator.of(context).pop();
                                           } catch (e) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text("Error - ${e.toString()}")),
-                                            );
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(SnackBar(content: Text("Error - ${e.toString()}")));
                                           }
                                         }
                                       },

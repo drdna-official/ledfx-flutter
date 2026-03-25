@@ -12,7 +12,6 @@ class LEDFxWorker {
   LEDFxWorker._();
   static final LEDFxWorker instance = LEDFxWorker._();
 
-  SendPort? _bgPort;
   ReceivePort? _uiReceivePort;
 
   // State we want the UI to have access to
@@ -23,6 +22,9 @@ class LEDFxWorker {
   final Map<String, ValueNotifier<List<int>>> _deviceRgbNotifiers = {};
   final Map<String, DateTime> _lastUpdate = {};
   static const _throttleDuration = Duration(milliseconds: 33); // ~30 FPS
+
+  StreamSubscription? _audioSubscription;
+  Completer<void>? _syncCompleter;
 
   ValueListenable<List<int>> getDeviceRgbNotifier(String deviceID) {
     return _deviceRgbNotifiers.putIfAbsent(deviceID, () => ValueNotifier<List<int>>([]));
@@ -37,10 +39,14 @@ class LEDFxWorker {
   ValueNotifier<String> infoSnackText = ValueNotifier("");
 
   Future<void> init() async {
+    debugPrint("LEDFxWorker: Initializing...");
     _uiReceivePort?.close(); // Close existing port if re-initializing
     _uiReceivePort = ReceivePort();
+    _syncCompleter = Completer<void>();
+
     IsolateNameServer.removePortNameMapping("ledfx_ui_port");
-    IsolateNameServer.registerPortWithName(_uiReceivePort!.sendPort, "ledfx_ui_port");
+    final registered = IsolateNameServer.registerPortWithName(_uiReceivePort!.sendPort, "ledfx_ui_port");
+    debugPrint("LEDFxWorker: UI port registered: $registered");
 
     _uiReceivePort!.listen((message) {
       if (message is Map<String, dynamic>) {
@@ -48,11 +54,28 @@ class LEDFxWorker {
       }
     });
 
-    // Wait for the background port to become available
-    await _waitForBackground();
+    // Synchronization retry loop
+    int syncAttempts = 0;
+    while (syncAttempts < 5) {
+      debugPrint("LEDFxWorker: Waiting for state synchronization (attempt ${syncAttempts + 1})...");
+      try {
+        await _syncCompleter!.future.timeout(const Duration(seconds: 2));
+        debugPrint("LEDFxWorker: State synchronized successfully.");
+        break;
+      } on TimeoutException {
+        syncAttempts++;
+        debugPrint("LEDFxWorker: Synchronization timed out, retrying requestState...");
+        requestState();
+      }
+    }
+
+    if (!_syncCompleter!.isCompleted) {
+      debugPrint("LEDFxWorker: WARNING - Failed to synchronize state within 10 seconds.");
+    }
 
     // Listen to local AudioBridge events for devices and state
-    AudioBridge.instance.events.listen((event) {
+    await _audioSubscription?.cancel();
+    _audioSubscription = AudioBridge.instance.events.listen((event) {
       if (event is DevicesInfoEvent) {
         audioDevices.value = event.audioDevices;
       } else if (event is StateEvent) {
@@ -68,32 +91,23 @@ class LEDFxWorker {
     }
   }
 
-  void _connectToBackground() {
-    _bgPort = IsolateNameServer.lookupPortByName("ledfx_bg_port");
-    if (_bgPort != null) {
-      // Background is alive! Request initial state.
-      requestState();
-    }
-  }
-
   void send(Map<String, dynamic> message) {
-    if (_bgPort == null) _connectToBackground();
-    _bgPort?.send(message);
-  }
-
-  Future<void> _waitForBackground() async {
-    while (_bgPort == null) {
-      _bgPort = IsolateNameServer.lookupPortByName("ledfx_bg_port");
-      if (_bgPort != null) {
-        requestState();
-        break;
-      }
-      await Future.delayed(const Duration(milliseconds: 200));
+    final bgPort = IsolateNameServer.lookupPortByName("ledfx_bg_port");
+    if (bgPort != null) {
+      debugPrint("LEDFxWorker: Sending command: ${message["cmd"]}");
+      bgPort.send(message);
+    } else {
+      debugPrint("LEDFxWorker: Cannot send command, background port is null.");
     }
   }
 
   void _handleBackgroundMessage(Map<String, dynamic> message) {
-    switch (message["event"]) {
+    final event = message["event"];
+    if (event != "visualizer_update") {
+      debugPrint("LEDFxWorker: Received background event: $event");
+    }
+
+    switch (event) {
       case "state_update":
         debugPrint("State update: ${message["state"]}");
         final state = message["state"] as Map<String, dynamic>;
@@ -102,6 +116,10 @@ class LEDFxWorker {
         }
         if (state.containsKey("virtuals")) {
           virtuals.value = List<Map<String, dynamic>>.from(state["virtuals"]);
+        }
+        // Mark synchronization as complete
+        if (_syncCompleter != null && !_syncCompleter!.isCompleted) {
+          _syncCompleter!.complete();
         }
         break;
       case "visualizer_update":
@@ -161,6 +179,10 @@ class LEDFxWorker {
     });
   }
 
+  void updateVirtualConfig(String virtualId, VirtualConfig config) {
+    send({"cmd": "update_virtual_config", "virtualId": virtualId, "config": config.toJson()});
+  }
+
   void toggleVirtual(String virtualId, bool active) {
     send({"cmd": "set_virtual_active", "virtualId": virtualId, "active": active});
   }
@@ -199,6 +221,8 @@ class LEDFxWorker {
   }
 
   void dispose() {
+    debugPrint("LEDFxWorker: Disposing...");
+    _audioSubscription?.cancel();
     IsolateNameServer.removePortNameMapping("ledfx_ui_port");
     _uiReceivePort?.close();
     for (final notifier in _deviceRgbNotifiers.values) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ledfx/ui/pages/device_page.dart';
-import 'package:ledfx/ui/pages/home_body.dart';
+import 'package:ledfx/ui/pages/home_page.dart';
+import 'package:ledfx/ui/pages/settings_page.dart';
 import 'package:ledfx/ui/pages/virtual_page.dart';
 import 'package:ledfx/worker.dart';
 
@@ -62,13 +63,37 @@ class _AdaptiveNavigationLayoutState extends State<AdaptiveNavigationLayout> {
   int _selectedIndex = 0;
   bool playing = false;
 
-  final GlobalKey _devicePageKey = GlobalKey(debugLabel: "device_page");
-  final GlobalKey _virtualPageKey = GlobalKey(debugLabel: "virtual_page");
+  final _homeKey = GlobalKey(debugLabel: "home_page");
+  final _deviceKey = GlobalKey(debugLabel: "device_page");
+  final _virtualKey = GlobalKey(debugLabel: "virtual_page");
+  final _settingsKey = GlobalKey(debugLabel: "settings_page");
 
   @override
   void initState() {
     super.initState();
     playing = ledfxWorker.isAudioCapturing.value;
+
+    ledfxWorker.infoSnackText.addListener(_infoSnackListener);
+    ledfxWorker.isAudioCapturing.addListener(_audioCapturingListener);
+  }
+
+  @override
+  void dispose() {
+    ledfxWorker.infoSnackText.removeListener(_infoSnackListener);
+    ledfxWorker.isAudioCapturing.removeListener(_audioCapturingListener);
+    super.dispose();
+  }
+
+  void _infoSnackListener() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ledfxWorker.infoSnackText.value)));
+    }
+  }
+
+  void _audioCapturingListener() {
+    if (mounted) {
+      setState(() => playing = ledfxWorker.isAudioCapturing.value);
+    }
   }
 
   void setIndex(int index) {
@@ -90,21 +115,23 @@ class _AdaptiveNavigationLayoutState extends State<AdaptiveNavigationLayout> {
   Widget build(BuildContext context) {
     final currentLayout = getLayout();
     final List<Widget> pages = [
-      DevicePage(key: _devicePageKey, layout: currentLayout),
-      VirtualStripPage(key: _virtualPageKey, layout: currentLayout)
+      HomePage(
+        key: _homeKey,
+        layout: currentLayout,
+      ),
+      DevicePage(
+        key: _deviceKey,
+        layout: currentLayout,
+      ),
+      VirtualStripPage(
+        key: _virtualKey,
+        layout: currentLayout,
+      ),
+      SettingsPage(
+        key: _settingsKey,
+        layout: currentLayout,
+      ),
     ];
-
-    ledfxWorker.infoSnackText.addListener(() {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ledfxWorker.infoSnackText.value)));
-      }
-    });
-
-    ledfxWorker.isAudioCapturing.addListener(() {
-      if (mounted) {
-        setState(() => playing = ledfxWorker.isAudioCapturing.value);
-      }
-    });
 
     final body = IndexedStack(index: _selectedIndex, children: pages);
 
@@ -130,8 +157,10 @@ class _AdaptiveNavigationLayoutState extends State<AdaptiveNavigationLayout> {
                       : NavigationRailLabelType.all,
 
                   destinations: const [
+                    NavigationRailDestination(icon: Icon(Icons.home_rounded), label: Text('Dashboard')),
                     NavigationRailDestination(icon: Icon(Icons.devices_other_rounded), label: Text('Devices')),
-                    NavigationRailDestination(icon: Icon(Icons.insights_rounded), label: Text('Virtual')),
+                    NavigationRailDestination(icon: Icon(Icons.insights_rounded), label: Text('Virtuals')),
+                    NavigationRailDestination(icon: Icon(Icons.settings_rounded), label: Text('Settings')),
                   ],
                 ),
                 Expanded(child: body),
@@ -149,27 +178,29 @@ class _AdaptiveNavigationLayoutState extends State<AdaptiveNavigationLayout> {
                   IconButton(
                     onPressed: () => setIndex(0),
                     isSelected: _selectedIndex == 0,
+                    icon: Icon(Icons.home_rounded),
+                    selectedIcon: Icon(Icons.home_rounded, color: Theme.of(context).colorScheme.primary),
+                  ),
+                  IconButton(
+                    onPressed: () => setIndex(1),
+                    isSelected: _selectedIndex == 1,
                     icon: Icon(Icons.devices_other_rounded),
                     selectedIcon: Icon(Icons.devices_other_rounded, color: Theme.of(context).colorScheme.primary),
                   ),
+                  const SizedBox(width: 40),
+
                   IconButton(
-                    onPressed: () => setIndex(1),
-                    isSelected: _selectedIndex == 1,
+                    onPressed: () => setIndex(2),
+                    isSelected: _selectedIndex == 2,
                     icon: Icon(Icons.insights_rounded),
                     selectedIcon: Icon(Icons.insights_rounded, color: Theme.of(context).colorScheme.primary),
                   ),
-                  const SizedBox(width: 40),
+
                   IconButton(
-                    onPressed: () => setIndex(0),
-                    isSelected: _selectedIndex == 0,
-                    icon: Icon(Icons.blur_on_rounded),
-                    selectedIcon: Icon(Icons.blur_on_rounded, color: Theme.of(context).colorScheme.primary),
-                  ),
-                  IconButton(
-                    onPressed: () => setIndex(1),
-                    isSelected: _selectedIndex == 1,
-                    icon: Icon(Icons.settings),
-                    selectedIcon: Icon(Icons.settings, color: Theme.of(context).colorScheme.primary),
+                    onPressed: () => setIndex(3),
+                    isSelected: _selectedIndex == 3,
+                    icon: Icon(Icons.settings_rounded),
+                    selectedIcon: Icon(Icons.settings_rounded, color: Theme.of(context).colorScheme.primary),
                   ),
                 ],
               ),
@@ -187,63 +218,6 @@ class _AdaptiveNavigationLayoutState extends State<AdaptiveNavigationLayout> {
         },
         child: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
       ),
-    );
-  }
-}
-
-class AppNavigationDrawer extends StatelessWidget {
-  const AppNavigationDrawer({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        children: const [
-          DrawerHeader(
-            decoration: BoxDecoration(color: Colors.red),
-            child: Text(
-              'LEDFx',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          ListTile(leading: Icon(Icons.devices_other_rounded), title: Text('Devices')),
-          ListTile(leading: Icon(Icons.send), title: Text('Sent')),
-        ],
-      ),
-    );
-  }
-}
-
-class ExpandedLayout extends StatelessWidget {
-  const ExpandedLayout({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Permanent Navigation Sidebar (Wider, custom widget)
-        SizedBox(
-          width: 250, // Dedicated wider space for the sidebar
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: const [
-              Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text('Permanent Navigation', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              ),
-              ListTile(leading: Icon(Icons.dashboard), title: Text('Dashboard')),
-              ListTile(leading: Icon(Icons.analytics), title: Text('Analytics')),
-              ListTile(leading: Icon(Icons.message), title: Text('Messages')),
-            ],
-          ),
-        ),
-
-        const VerticalDivider(thickness: 1, width: 1),
-
-        // Main Content
-        Expanded(child: HomeBody(layout: AdaptiveLayout.expanded)),
-      ],
     );
   }
 }

@@ -10,15 +10,15 @@ Future<bool> requestNotificationPermission() async {
   return status.isGranted;
 }
 
-class HomeBody extends StatefulWidget {
-  const HomeBody({super.key, required this.layout});
+class HomePage extends StatefulWidget {
+  const HomePage({super.key, required this.layout});
   final AdaptiveLayout layout;
 
   @override
-  State<HomeBody> createState() => _HomeBodyState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _HomeBodyState extends State<HomeBody> {
+class _HomePageState extends State<HomePage> {
   final LEDFxWorker ledfxWorker = LEDFxWorker.instance;
 
   @override
