@@ -2,6 +2,8 @@ import 'dart:ffi';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:ledfx/dsp/filterbank.dart';
+import 'package:ledfx/dsp/types.dart';
 import 'package:ledfx/ffi/aubio/aubio.dart';
 import 'package:ledfx/ffi/aubio/aubio_bindings.dart';
 import 'package:ledfx/src/core.dart';
@@ -129,7 +131,7 @@ class Melbank {
   final MelbankConfig config;
 
   late double powerFactor;
-  late Pointer<aubio_filterbank_t> filterBank;
+  late Filterbank filterBank;
   late Float64List melbankFreqsFloat;
   late Int32List melbankFreqs;
 
@@ -153,8 +155,8 @@ class Melbank {
         );
         melbankFreqsFloat = Float64List.fromList(melbankMatt.map((mel) => mattTOhz(mel)).toList());
 
-        filterBank = Aubio.createFilterBank(config.samples, FFT_SIZE);
-        filterBank.setTriangleBandsF32(freqs: melbankFreqsFloat, sampleRate: MIC_RATE);
+        filterBank = Filterbank(config.samples, FFT_SIZE);
+        filterBank.setTriangleBandsF32(freqs: FloatVector.fromArray(melbankFreqsFloat), sampleRate: MIC_RATE);
         melbankFreqsFloat = melbankFreqsFloat.sublist(1, melbankFreqsFloat.length - 1);
     }
 
@@ -183,7 +185,12 @@ class Melbank {
   // computes the melbank curve for frequency domain .
   void execute(Pointer<cvec_t> freqDomain, Float64List melbank, Float64List filteredMelbank) {
     // copyListContents(melbank, filterBank.process(freqDomain, melbank.length));
-    melbank.setAll(0, filterBank.process(freqDomain, melbank.length));
+    final out = ComplexVector.create(FFT_SIZE);
+    for (var i = 0; i < (FFT_SIZE ~/ 2 + 1); i++) {
+      out.setNorm(i, Aubio.bindings.cvec_norm_get_sample(freqDomain, i));
+      out.setPhase(i, Aubio.bindings.cvec_phas_get_sample(freqDomain, i));
+    }
+    filterBank.process(out, melbank);
 
     for (int i = 0; i < melbank.length; i++) {
       melbank[i] = pow(melbank[i], powerFactor).toDouble();
@@ -213,7 +220,7 @@ class Melbank {
   }
 
   void dispose() {
-    filterBank.delete();
+    // filterBank.delete();
   }
 }
 
