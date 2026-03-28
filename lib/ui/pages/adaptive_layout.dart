@@ -3,6 +3,7 @@ import 'package:ledfx/ui/pages/device_page.dart';
 import 'package:ledfx/ui/pages/home_page.dart';
 import 'package:ledfx/ui/pages/settings_page.dart';
 import 'package:ledfx/ui/pages/virtual_page.dart';
+import 'package:ledfx/ui/visualizer/visualizer_painter.dart';
 import 'package:ledfx/worker.dart';
 
 // Recommended Material Design Breakpoints
@@ -115,58 +116,75 @@ class _AdaptiveNavigationLayoutState extends State<AdaptiveNavigationLayout> {
   Widget build(BuildContext context) {
     final currentLayout = getLayout();
     final List<Widget> pages = [
-      HomePage(
-        key: _homeKey,
-        layout: currentLayout,
-      ),
-      DevicePage(
-        key: _deviceKey,
-        layout: currentLayout,
-      ),
-      VirtualStripPage(
-        key: _virtualKey,
-        layout: currentLayout,
-      ),
-      SettingsPage(
-        key: _settingsKey,
-        layout: currentLayout,
-      ),
+      HomePage(key: _homeKey, layout: currentLayout),
+      DevicePage(key: _deviceKey, layout: currentLayout),
+      VirtualStripPage(key: _virtualKey, layout: currentLayout),
+      SettingsPage(key: _settingsKey, layout: currentLayout),
     ];
 
-    final body = IndexedStack(index: _selectedIndex, children: pages);
+    Widget body = IndexedStack(index: _selectedIndex, children: pages);
+
+    body = currentLayout != AdaptiveLayout.compact
+        ? Row(
+            children: [
+              NavigationRail(
+                selectedIndex: _selectedIndex,
+                extended: currentLayout == AdaptiveLayout.expanded,
+                onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+                labelType: currentLayout == AdaptiveLayout.expanded
+                    ? NavigationRailLabelType.none
+                    : NavigationRailLabelType.all,
+
+                destinations: const [
+                  NavigationRailDestination(icon: Icon(Icons.home_rounded), label: Text('Dashboard')),
+                  NavigationRailDestination(icon: Icon(Icons.devices_other_rounded), label: Text('Devices')),
+                  NavigationRailDestination(icon: Icon(Icons.insights_rounded), label: Text('Virtuals')),
+                  NavigationRailDestination(icon: Icon(Icons.settings_rounded), label: Text('Settings')),
+                ],
+              ),
+              Expanded(child: body),
+            ],
+          )
+        : body;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('LEDFx'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        actions: [
-          IconButton(onPressed: () => ledfxWorker.requestState(), icon: Icon(Icons.refresh_rounded)),
-          SizedBox(width: 16),
-        ],
+        // actions: [
+        //   IconButton(onPressed: () => ledfxWorker.requestState(), icon: Icon(Icons.refresh_rounded)),
+        //   SizedBox(width: 16),
+        // ],
       ),
       // drawer: currentLayout == AdaptiveLayout.compact ? const AppNavigationDrawer() : null,
-      body: currentLayout != AdaptiveLayout.compact
-          ? Row(
-              children: [
-                NavigationRail(
-                  selectedIndex: _selectedIndex,
-                  extended: currentLayout == AdaptiveLayout.expanded,
-                  onDestinationSelected: (index) => setState(() => _selectedIndex = index),
-                  labelType: currentLayout == AdaptiveLayout.expanded
-                      ? NavigationRailLabelType.none
-                      : NavigationRailLabelType.all,
-
-                  destinations: const [
-                    NavigationRailDestination(icon: Icon(Icons.home_rounded), label: Text('Dashboard')),
-                    NavigationRailDestination(icon: Icon(Icons.devices_other_rounded), label: Text('Devices')),
-                    NavigationRailDestination(icon: Icon(Icons.insights_rounded), label: Text('Virtuals')),
-                    NavigationRailDestination(icon: Icon(Icons.settings_rounded), label: Text('Settings')),
-                  ],
+      body: Stack(
+        children: [
+          body,
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: SizedBox(
+                height: 50,
+                child: ValueListenableBuilder(
+                  valueListenable: ledfxWorker.getDeviceRgbNotifier("dummyViz"),
+                  builder: (context, value, child) {
+                    return CustomPaint(
+                      painter: BarVisualizerPainter(
+                        values: value,
+                        ledCount: 300,
+                        valueType: BarVisualizerValueType.rgbBars,
+                        alpha: 0.33,
+                      ),
+                    );
+                  },
                 ),
-                Expanded(child: body),
-              ],
-            )
-          : body,
+              ),
+            ),
+          ),
+        ],
+      ),
       bottomNavigationBar: currentLayout != AdaptiveLayout.compact
           ? BottomAppBar(shape: CircularNotchedRectangle(), notchMargin: 8.0)
           : BottomAppBar(

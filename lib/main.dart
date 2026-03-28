@@ -25,7 +25,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  late Future<void> _initFuture;
+  late Future<bool> _initFuture;
 
   @override
   void initState() {
@@ -67,20 +67,54 @@ class _MyAppState extends State<MyApp> {
           body: Center(
             child: FutureBuilder(
               future: _initFuture,
-              builder: (BuildContext context, AsyncSnapshot<void> snapshot) {
+              builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [CircularProgressIndicator(), Text('Connecting to Background Isolate')],
+                  return Scaffold(
+                    appBar: AppBar(
+                      title: Text('LEDFx'),
+                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    ),
+
+                    body: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [CircularProgressIndicator(), Text('Initializing Engine...')],
+                      ),
                     ),
                   );
                 } else if (snapshot.hasError) {
-                  return Center(
-                    child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
+                  return Scaffold(
+                    appBar: AppBar(title: Text('LEDFx')),
+                    body: Center(
+                      child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
+                    ),
                   );
                 } else if (snapshot.connectionState == ConnectionState.done) {
-                  return AdaptiveNavigationLayout();
+                  if (snapshot.data == true) {
+                    return AdaptiveNavigationLayout();
+                  } else {
+                    return Scaffold(
+                      appBar: AppBar(
+                        title: Text('LEDFx'),
+                        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                      ),
+                      body: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Failed to initialize Engine', style: const TextStyle(color: Colors.red)),
+                            ElevatedButton(
+                              onPressed: () {
+                                _initFuture = LEDFxWorker.instance.init();
+                                setState(() {});
+                              },
+                              child: Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
                 }
                 return const SizedBox.shrink();
               },

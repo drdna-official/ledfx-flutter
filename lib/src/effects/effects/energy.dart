@@ -7,6 +7,22 @@ import 'package:ledfx/src/audio/mel_utils.dart';
 import 'package:ledfx/src/effects/audio_reactive.dart';
 import 'package:ledfx/src/effects/effect.dart';
 
+enum MixMode {
+  add,
+  overlap,
+  overlapAlt,
+  overlapAlt2;
+
+  String get fullName {
+    return switch (this) {
+      MixMode.add => "Additive",
+      MixMode.overlap => "Overlap - HML",
+      MixMode.overlapAlt => "Overlap - MHL",
+      MixMode.overlapAlt2 => "Overlap - LMH",
+    };
+  }
+}
+
 class EnergyEffect extends Effect with AudioReactiveEffect implements EffectMixin {
   EnergyEffect({required super.ledfx, required super.config}) {
     multiplier = 1.6 - config.blur / 17;
@@ -62,20 +78,30 @@ class EnergyEffect extends Effect with AudioReactiveEffect implements EffectMixi
     // fill with zeros
     setRows(p, p.length, Float64List(3));
 
-    if (config.mixMode == null || config.mixMode!.isEmpty) {
-      config.mixMode = "overlap";
-    }
+    config.mixMode ??= MixMode.overlap;
 
-    if (config.mixMode! == "add") {
+    if (config.mixMode == MixMode.add) {
       //  Values are added to existing ones
+      // Caps to 255 --> makes ovelaped regions whiter
       setRows(p, lowsIdx, lowsColor);
       addRows(p, midsIdx, midsColor);
       addRows(p, highsIdx, highColor);
-    } else if (config.mixMode! == "overlap") {
+    } else if (config.mixMode == MixMode.overlap) {
       // Overlap: Values simply overwrite each other
       setRows(p, highsIdx, highColor);
       setRows(p, midsIdx, midsColor);
       setRows(p, lowsIdx, lowsColor);
+    } else if (config.mixMode == MixMode.overlapAlt) {
+      // Overlap: Values simply overwrite each other
+      // highs are generally sorter. this has better color dynamics
+      setRows(p, midsIdx, midsColor);
+      setRows(p, highsIdx, highColor);
+      setRows(p, lowsIdx, lowsColor);
+    } else if (config.mixMode == MixMode.overlapAlt2) {
+      // Overlap: Values simply overwrite each other
+      setRows(p, lowsIdx, lowsColor);
+      setRows(p, midsIdx, midsColor);
+      setRows(p, highsIdx, highColor);
     }
 
     // Filter and Update the pixel value

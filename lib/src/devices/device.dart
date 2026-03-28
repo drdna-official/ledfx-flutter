@@ -167,7 +167,7 @@ class Devices extends Iterable<MapEntry<String, Device>> {
       config = DeviceConfig(
         type: deviceType,
         name: name,
-        pixelCount: 0,
+        pixelCount: 300,
         rgbwLED: false,
         syncMode: null,
         address: resolvedDestination,

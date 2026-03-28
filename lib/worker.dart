@@ -20,10 +20,11 @@ class LEDFxWorker {
 
   // Per-device RGB notifiers for lower overhead vs streams
   final Map<String, ValueNotifier<List<int>>> _deviceRgbNotifiers = {};
-  final Map<String, DateTime> _lastUpdate = {};
+  final Map<String, DateTime> _lastVizUpdate = {};
   static const _throttleDuration = Duration(milliseconds: 33); // ~30 FPS
 
   StreamSubscription? _audioSubscription;
+  StreamSubscription? _uiPortSubscription;
   Completer<void>? _syncCompleter;
 
   ValueListenable<List<int>> getDeviceRgbNotifier(String deviceID) {
@@ -38,7 +39,7 @@ class LEDFxWorker {
   // Info state
   ValueNotifier<String> infoSnackText = ValueNotifier("");
 
-  Future<void> init() async {
+  Future<bool> init() async {
     debugPrint("LEDFxWorker: Initializing...");
     _uiReceivePort?.close(); // Close existing port if re-initializing
     _uiReceivePort = ReceivePort();
@@ -48,18 +49,30 @@ class LEDFxWorker {
     final registered = IsolateNameServer.registerPortWithName(_uiReceivePort!.sendPort, "ledfx_ui_port");
     debugPrint("LEDFxWorker: UI port registered: $registered");
 
-    _uiReceivePort!.listen((message) {
+    _uiPortSubscription = _uiReceivePort!.listen((message) {
       if (message is Map<String, dynamic>) {
         _handleBackgroundMessage(message);
       }
     });
 
+    SendPort? bgPort;
+    debugPrint("LEDFxWorker: Waiting for background port...");
+    while (bgPort == null) {
+      bgPort = IsolateNameServer.lookupPortByName("ledfx_bg_port");
+      if (bgPort != null) {
+        debugPrint("LEDFxWorker: Background port found during worker init, requesting state");
+        requestState();
+        break;
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
     // Synchronization retry loop
     int syncAttempts = 0;
-    while (syncAttempts < 5) {
+    while (syncAttempts < 10) {
       debugPrint("LEDFxWorker: Waiting for state synchronization (attempt ${syncAttempts + 1})...");
       try {
-        await _syncCompleter!.future.timeout(const Duration(seconds: 2));
+        await _syncCompleter!.future.timeout(const Duration(milliseconds: 500));
         debugPrint("LEDFxWorker: State synchronized successfully.");
         break;
       } on TimeoutException {
@@ -70,24 +83,28 @@ class LEDFxWorker {
     }
 
     if (!_syncCompleter!.isCompleted) {
-      debugPrint("LEDFxWorker: WARNING - Failed to synchronize state within 10 seconds.");
-    }
+      debugPrint("LEDFxWorker: WARNING - Failed to synchronize state within 5 seconds.");
+      // dispose instance initiation
+      dispose();
+      return false;
+    } else {
+      // Listen to local AudioBridge events for devices and state
+      await _audioSubscription?.cancel();
+      _audioSubscription = AudioBridge.instance.events.listen((event) {
+        if (event is DevicesInfoEvent) {
+          audioDevices.value = event.audioDevices;
+        } else if (event is StateEvent) {
+          isAudioCapturing.value = event.value == "recording_started";
+        }
+      });
+      AudioBridge.instance.getDevices();
 
-    // Listen to local AudioBridge events for devices and state
-    await _audioSubscription?.cancel();
-    _audioSubscription = AudioBridge.instance.events.listen((event) {
-      if (event is DevicesInfoEvent) {
-        audioDevices.value = event.audioDevices;
-      } else if (event is StateEvent) {
-        isAudioCapturing.value = event.value == "recording_started";
+      // Fetch the initial recording state directly to sync UI
+      final bool? isCapturing = await AudioBridge.instance.getRecordingState();
+      if (isCapturing != null) {
+        isAudioCapturing.value = isCapturing;
       }
-    });
-    AudioBridge.instance.getDevices();
-
-    // Fetch the initial recording state directly to sync UI
-    final bool? isCapturing = await AudioBridge.instance.getRecordingState();
-    if (isCapturing != null) {
-      isAudioCapturing.value = isCapturing;
+      return true;
     }
   }
 
@@ -127,9 +144,9 @@ class LEDFxWorker {
         final data = message["data"];
         if (deviceID != null && data is List<int>) {
           final now = DateTime.now();
-          final last = _lastUpdate[deviceID] ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final last = _lastVizUpdate[deviceID] ?? DateTime.fromMillisecondsSinceEpoch(0);
           if (now.difference(last) >= _throttleDuration) {
-            _lastUpdate[deviceID] = now;
+            _lastVizUpdate[deviceID] = now;
             _deviceRgbNotifiers[deviceID]?.value = data;
           }
         }
@@ -160,7 +177,7 @@ class LEDFxWorker {
     send({"cmd": "remove_device", "deviceId": deviceId});
     _deviceRgbNotifiers[deviceId]?.dispose();
     _deviceRgbNotifiers.remove(deviceId);
-    _lastUpdate.remove(deviceId);
+    _lastVizUpdate.remove(deviceId);
   }
 
   void addNewVirtual(String name) {
@@ -222,6 +239,7 @@ class LEDFxWorker {
 
   void dispose() {
     debugPrint("LEDFxWorker: Disposing...");
+    _uiPortSubscription?.cancel();
     _audioSubscription?.cancel();
     IsolateNameServer.removePortNameMapping("ledfx_ui_port");
     _uiReceivePort?.close();
@@ -229,6 +247,6 @@ class LEDFxWorker {
       notifier.dispose();
     }
     _deviceRgbNotifiers.clear();
-    _lastUpdate.clear();
+    _lastVizUpdate.clear();
   }
 }

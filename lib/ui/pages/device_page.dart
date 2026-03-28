@@ -28,6 +28,7 @@ class _DevicePageState extends State<DevicePage> {
             builder: (context, devices, child) {
               return ListView.separated(
                 shrinkWrap: true,
+                padding: EdgeInsets.only(bottom: 100),
                 separatorBuilder: (context, index) => SizedBox(height: 8),
                 itemCount: devices.length,
                 itemBuilder: (context, index) {
@@ -72,54 +73,56 @@ class _DevicePageState extends State<DevicePage> {
                                 ],
                               ),
                             ),
-                            IconButton(
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    return AlertDialog(
-                                      title: Text("Remove Device"),
-                                      content: Text("Are you sure you want to remove this device?"),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                          },
-                                          child: Text("Cancel"),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            ledfxWorker.removeDevice(deviceID);
-                                            Navigator.pop(context);
-                                          },
-                                          child: Text("Remove"),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-                              },
-                              icon: Icon(Icons.delete, color: Colors.red),
-                            ),
+                            if (deviceID != "dummyViz")
+                              IconButton(
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: Text("Remove Device"),
+                                        content: Text("Are you sure you want to remove this device?"),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () {
+                                              Navigator.pop(context);
+                                            },
+                                            child: Text("Cancel"),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              ledfxWorker.removeDevice(deviceID);
+                                              Navigator.pop(context);
+                                            },
+                                            child: Text("Remove"),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                },
+                                icon: Icon(Icons.delete, color: Colors.red),
+                              ),
                           ],
                         ),
                         // Visualizer Strip
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: SizedBox(
-                            height: 10,
-                            child: ValueListenableBuilder<List<int>>(
-                              valueListenable: ledfxWorker.getDeviceRgbNotifier(deviceID),
-                              builder: (BuildContext context, List<int> data, Widget? child) {
-                                if (data.isEmpty) return const SizedBox.shrink();
-                                return CustomPaint(
-                                  painter: VisualizerPainter(rgb: data, ledCount: 300),
-                                  size: const Size(double.infinity, 50),
-                                );
-                              },
+                        if (deviceID != "dummyViz")
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: SizedBox(
+                              height: 10,
+                              child: ValueListenableBuilder<List<int>>(
+                                valueListenable: ledfxWorker.getDeviceRgbNotifier(deviceID),
+                                builder: (BuildContext context, List<int> data, Widget? child) {
+                                  if (data.isEmpty) return const SizedBox.shrink();
+                                  return CustomPaint(
+                                    painter: StripVisualizerPainter(values: data, ledCount: 300),
+                                    size: const Size(double.infinity, 50),
+                                  );
+                                },
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                     children: [
@@ -148,10 +151,11 @@ class _DevicePageState extends State<DevicePage> {
           bottom: 16,
           right: 16,
           child: FloatingActionButton(
-              heroTag: "add_device_fab",
-              shape: CircleBorder(),
-              onPressed: _addDeviceForm,
-              child: Icon(Icons.add)),
+            heroTag: "add_device_fab",
+            shape: CircleBorder(),
+            onPressed: _addDeviceForm,
+            child: Icon(Icons.add),
+          ),
         ),
       ],
     );

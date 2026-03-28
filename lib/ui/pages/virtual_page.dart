@@ -78,6 +78,7 @@ class _VirtualStripListState extends State<VirtualStripList> {
             builder: (context, virtuals, child) {
               return ListView.separated(
                 shrinkWrap: true,
+                padding: EdgeInsets.only(bottom: 100),
                 separatorBuilder: (context, index) => SizedBox(height: 8),
                 itemCount: virtuals.length,
                 itemBuilder: (context, index) {
@@ -98,7 +99,6 @@ class _VirtualStripListState extends State<VirtualStripList> {
                       });
                     },
                     dense: true,
-                    childrenPadding: EdgeInsets.all(8.0),
                     collapsedShape: RoundedRectangleBorder(
                       side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
                       borderRadius: BorderRadius.all(Radius.circular(8)),
@@ -138,47 +138,50 @@ class _VirtualStripListState extends State<VirtualStripList> {
                                 ledfxWorker.toggleVirtual(virtualID, newVal);
                               },
                             ),
-                            IconButton(
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    return AlertDialog(
-                                      title: Text("Remove Virtual Strip"),
-                                      content: Text("Are you sure you want to remove this virtual strip?"),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                          },
-                                          child: Text("Cancel"),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            ledfxWorker.removeVirtual(virtualID);
-                                            Navigator.pop(context);
-                                          },
-                                          child: Text("Remove"),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-                              },
-                              icon: Icon(Icons.delete, color: Colors.red),
-                            ),
+                            if (virtualID != "dummyVizVirtual")
+                              IconButton(
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: Text("Remove Virtual Strip"),
+                                        content: Text("Are you sure you want to remove this virtual strip?"),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () {
+                                              Navigator.pop(context);
+                                            },
+                                            child: Text("Cancel"),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              ledfxWorker.removeVirtual(virtualID);
+                                              Navigator.pop(context);
+                                            },
+                                            child: Text("Remove"),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                },
+                                icon: Icon(Icons.delete, color: Colors.red),
+                              ),
                           ],
                         ),
                       ],
                     ),
 
                     children: [
+                      Divider(indent: 75, endIndent: 75),
                       // CONTROLS
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        padding: const EdgeInsets.all(8.0),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           mainAxisSize: MainAxisSize.max,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
                               child: Padding(
@@ -188,10 +191,41 @@ class _VirtualStripListState extends State<VirtualStripList> {
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text("virtual ID: $virtualID"),
-                                    Text(
-                                      "Active Effect: ${v["activeEffect"] != null ? v["activeEffect"]["name"] : 'None'}",
+                                    RichText(
+                                      text: TextSpan(
+                                        text: "Active Effect: ",
+                                        style: TextStyle(color: Colors.white),
+                                        children: [
+                                          TextSpan(
+                                            text: v["activeEffect"] != null ? v["activeEffect"]["name"] : 'None',
+                                            style: TextStyle(color: Colors.white, fontWeight: .bold),
+                                          ),
+                                        ],
+                                      ),
                                     ),
+
+                                    // List Segments ->
+                                    ...v["segments"].map((segment) {
+                                      final seg = SegmentConfig.fromJson(segment);
+                                      final device = ledfxWorker.devices.value.firstWhere(
+                                        (e) => e["id"] == seg.deviceID,
+                                        orElse: () => {},
+                                      );
+                                      return device.isEmpty
+                                          ? SizedBox()
+                                          : Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  device["config"] == null
+                                                      ? "Unknown"
+                                                      : device["config"]["name"] ?? "Unknown",
+                                                  style: TextStyle(fontStyle: .italic),
+                                                ),
+                                                Text("    ${seg.start} - ${seg.end}"),
+                                              ],
+                                            );
+                                    }).toList(),
                                   ],
                                 ),
                               ),

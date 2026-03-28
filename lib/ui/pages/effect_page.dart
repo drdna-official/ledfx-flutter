@@ -1,6 +1,7 @@
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:ledfx/src/effects/effect.dart';
+import 'package:ledfx/src/effects/effects/energy.dart';
 import 'package:ledfx/worker.dart';
 
 class EffectPage extends StatefulWidget {
@@ -99,7 +100,6 @@ class _EffectPageState extends State<EffectPage> {
             builder: (context, setLocalState) {
               return Column(
                 children: [
-                  Text(widget.virtualName),
                   DropdownButton<EffectType>(
                     value: activeEffect?.type,
                     items: EffectType.values.where((v) => v != EffectType.unknown).map((effect) {
@@ -132,18 +132,42 @@ class _EffectPageState extends State<EffectPage> {
                       },
                     ),
 
-                    Slider(
-                      value: activeEffect!.brightness,
-                      onChanged: (value) {
-                        activeEffect!.brightness = value;
-                        setLocalState(() {});
-                      },
-                      onChangeEnd: (value) {
-                        updateEffectConfig(activeEffect);
-                      },
+                    ListTile(
+                      title: Text("Brightness"),
+                      trailing: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: 200),
+                        child: Slider(
+                          value: activeEffect!.brightness,
+                          min: 0.0,
+                          max: 1.0,
+                          divisions: 10,
+                          onChanged: (value) {
+                            activeEffect!.brightness = value;
+                            setLocalState(() {});
+                          },
+                          onChangeEnd: (value) {
+                            updateEffectConfig(activeEffect);
+                          },
+                        ),
+                      ),
                     ),
 
                     if (activeEffect!.type == EffectType.energy) ...[
+                      ListTile(
+                        title: Text("Mix Mode"),
+                        trailing: DropdownButton<MixMode>(
+                          value: activeEffect!.mixMode,
+                          items: MixMode.values.map((mode) {
+                            return DropdownMenuItem<MixMode>(value: mode, child: Text(mode.fullName));
+                          }).toList(),
+                          onChanged: (mode) {
+                            if (mode != null) {
+                              activeEffect!.mixMode = mode;
+                              updateEffectConfig(activeEffect);
+                            }
+                          },
+                        ),
+                      ),
                       ListView(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),

@@ -39,7 +39,7 @@ class EffectConfig {
   double backgroundBrightness;
   bool diag;
   bool advanced;
-  String? mixMode;
+  MixMode? mixMode;
   double? filterSensitiviy;
   Color? lowsColor;
   Color? midsColor;
@@ -77,7 +77,7 @@ class EffectConfig {
       'backgroundBrightness': backgroundBrightness,
       'diag': diag,
       'advanced': advanced,
-      'mixMode': mixMode,
+      'mixMode': mixMode?.name,
       'decaySensitivity': filterSensitiviy,
       'lowsColor': lowsColor?.toARGB32(),
       'midsColor': midsColor?.toARGB32(),
@@ -98,7 +98,7 @@ class EffectConfig {
       backgroundBrightness: json['backgroundBrightness'] ?? 1.0,
       diag: json['diag'] ?? false,
       advanced: json['advanced'] ?? false,
-      mixMode: json['mixMode'],
+      mixMode: json['mixMode'] != null ? MixMode.values.firstWhere((e) => e.name == json['mixMode']) : null,
       filterSensitiviy: json['decaySensitivity'],
       lowsColor: json['lowsColor'] != null ? Color(json['lowsColor']) : null,
       midsColor: json['midsColor'] != null ? Color(json['midsColor']) : null,
