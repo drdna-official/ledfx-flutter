@@ -56,7 +56,7 @@ extension type FloatVector(Float32List _data) {
   double get(int index) => _data[headerSize + index];
   void set(int index, double val) => _data[headerSize + index] = val;
 
-  Float32List getData() => _data.sublist(headerSize);
+  Float32List getData() => Float32List.view(_data.buffer, _data.offsetInBytes + headerSize * 4);
 
   void setPower(double power) {
     for (int i = headerSize; i < getLength(); i++) {
@@ -128,10 +128,18 @@ extension type FilterBankData(Float32List _data) {
   }
 
   void matrixMultiply(FloatVector input, Float32List output) {
-    for (int j = 0; j < getFilterCol(); j++) {
-      for (int k = 0; k < getFilterRow(); k++) {
-        output[k] += input.get(j) * get(k, j);
+    final int rows = getFilterRow();
+    final int cols = getFilterCol();
+    for (int k = 0; k < rows; k++) {
+      double sum = 0.0;
+      final int rowOffset = headerSize + k * cols;
+      for (int j = 0; j < cols; j++) {
+        final double weight = _data[rowOffset + j];
+        if (weight > 0.0) {
+          sum += input.get(j) * weight;
+        }
       }
+      output[k] = sum;
     }
   }
 }

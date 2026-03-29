@@ -20,24 +20,49 @@ class DigitalFilter {
   }
 
   void process(FloatVector input, FloatVector output) {
-    if (input.getLength() != output.getLength()) {
+    final int len = input.getLength();
+    if (len != output.getLength()) {
       throw Exception("input and output must have the same length");
     }
 
-    for (int i = 0; i < input.getLength(); i++) {
-      // from input
-      filter.setX(0, input.get(i));
-      filter.setY(0, filter.getB(0) * filter.getX(0));
+    final int order = filter.getOrder();
+    
+    // Fast-path for standard Biquad formulation (order == 3)
+    if (order == 3) {
+      final double b0 = filter.getB(0), b1 = filter.getB(1), b2 = filter.getB(2);
+      final double a1 = filter.getA(1), a2 = filter.getA(2);
+      double x1 = filter.getX(1), x2 = filter.getX(2);
+      double y1 = filter.getY(1), y2 = filter.getY(2);
 
-      for (int j = 1; j < filter.getOrder(); j++) {
-        filter.setY(0, filter.getY(0) + (filter.getB(j) * filter.getX(j)));
-        filter.setY(0, filter.getY(0) - (filter.getA(j) * filter.getY(j)));
+      for (int i = 0; i < len; i++) {
+        final double x0 = input.get(i);
+        final double y0 = (b0 * x0) + (b1 * x1) + (b2 * x2) - (a1 * y1) - (a2 * y2);
+        output.set(i, y0);
+        x2 = x1;
+        x1 = x0;
+        y2 = y1;
+        y1 = y0;
       }
 
-      // set output
-      output.set(i, filter.getY(0));
-      // Store for next sample
-      for (int j = filter.getOrder() - 1; j > 0; j--) {
+      filter.setX(1, x1); filter.setX(2, x2);
+      filter.setY(1, y1); filter.setY(2, y2);
+      return;
+    }
+
+    // Fallback for non-biquad arbitrary orders
+    for (int i = 0; i < len; i++) {
+      filter.setX(0, input.get(i));
+      double y0 = filter.getB(0) * filter.getX(0);
+
+      for (int j = 1; j < order; j++) {
+        y0 += (filter.getB(j) * filter.getX(j));
+        y0 -= (filter.getA(j) * filter.getY(j));
+      }
+
+      filter.setY(0, y0);
+      output.set(i, y0);
+      
+      for (int j = order - 1; j > 0; j--) {
         filter.setX(j, filter.getX(j - 1));
         filter.setY(j, filter.getY(j - 1));
       }

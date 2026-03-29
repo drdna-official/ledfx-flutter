@@ -10,16 +10,22 @@ class Filterbank {
       filterBank = FilterBankData.create(noFilters, winSize);
 
   void process(ComplexVector input, Float32List output) {
-    final FloatVector temp = FloatVector.create(input.getLength());
+    final int len = input.getLength();
+    final FloatVector temp = FloatVector.create(len);
+    processNoAlloc(input, output, temp);
+  }
+
+  void processNoAlloc(ComplexVector input, Float32List output, FloatVector normBuffer) {
+    final int len = input.getLength();
     // copy input to temp
-    for (int i = 0; i < input.getLength(); i++) {
-      temp.set(i, input.getNorm(i));
+    for (int i = 0; i < len; i++) {
+      normBuffer.set(i, input.getNorm(i));
     }
     // adjust power
     if (filterBank.getPower() != 1.0) {
-      temp.setPower(filterBank.getPower());
+      normBuffer.setPower(filterBank.getPower());
     }
-    filterBank.matrixMultiply(temp, output);
+    filterBank.matrixMultiply(normBuffer, output);
   }
 
   int setTriangleBandsF32({required FloatVector freqs, required int sampleRate}) {

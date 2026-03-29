@@ -56,10 +56,7 @@ void main() {
 
   Filterbank dartFilterBank = Filterbank(24, winSize);
   final List<double> freqs = melbankMatt.map((mel) => mattTOhz(mel)).toList();
-  dartFilterBank.setTriangleBandsF32(
-    freqs: FloatVector.fromArray(Float32List.fromList(freqs)),
-    sampleRate: 44100,
-  );
+  dartFilterBank.setTriangleBandsF32(freqs: FloatVector.fromArray(Float32List.fromList(freqs)), sampleRate: 44100);
 
   dartPvoc.analyze(dartFiltered, dartFftGrain);
 
@@ -157,9 +154,66 @@ void main() {
   print('Max Melbank Diff  : $maxMelDiff (at Band $maxMelBin)');
   print('========================================================');
 
+  // Cleanup logic moved down for benchmark reuse or re-initialization
+  print('========================================================');
+
+  // --- BENCHMARK ---
+  const int numFrames = 10000;
+  print('\nBENCHMARKING: Processing $numFrames frames ($hopSize samples each)...');
+
+  // Generate a long random signal
+  final random = Random();
+  final audioData = Float32List(numFrames * hopSize);
+  for (int i = 0; i < audioData.length; i++) {
+    audioData[i] = random.nextDouble() * 2.0 - 1.0;
+  }
+
+  // Pre-allocate resources
+  Pointer<fvec_t> aubioOutVec = Aubio.bindings.new_fvec(24);
+  final FloatVector normBuffer = FloatVector.create(winSize ~/ 2 + 1);
+
+  // 1. DART BENCHMARK
+  final dartStopwatch = Stopwatch()..start();
+  for (int f = 0; f < numFrames; f++) {
+    final int offset = f * hopSize;
+    // Efficiently copy slice using copyFrom
+    dartInput.copyFrom(Float32List.sublistView(audioData, offset, offset + hopSize));
+
+    dartFilter.process(dartInput, dartFiltered);
+    dartPvoc.analyze(dartFiltered, dartFftGrain);
+    dartFilterBank.processNoAlloc(dartFftGrain, dartMelbank, normBuffer);
+  }
+  dartStopwatch.stop();
+  final double dartTotalMs = dartStopwatch.elapsedMicroseconds / 1000.0;
+
+  // 2. AUBIO BENCHMARK
+  final aubioStopwatch = Stopwatch()..start();
+  for (int f = 0; f < numFrames; f++) {
+    final int offset = f * hopSize;
+    // Native copy
+    final dataPtr = Aubio.bindings.fvec_get_data(aubioInputVec);
+    for (int i = 0; i < hopSize; i++) {
+      dataPtr[i] = audioData[offset + i];
+    }
+
+    Aubio.bindings.aubio_filter_do(aubioFilter, aubioInputVec);
+    Aubio.bindings.aubio_pvoc_do(aubioPvoc, aubioInputVec, aubioFftGrain);
+    Aubio.bindings.aubio_filterbank_do(aubioFilterBank, aubioFftGrain, aubioOutVec);
+  }
+  aubioStopwatch.stop();
+  final double aubioTotalMs = aubioStopwatch.elapsedMicroseconds / 1000.0;
+
+  print('========================================================');
+  print('PERFORMANCE RESULTS ($numFrames frames):');
+  print('Dart total time : ${dartTotalMs.toStringAsFixed(2)} ms (${(dartTotalMs / numFrames).toStringAsFixed(4)} ms/frame) | FPS: ${(numFrames * 1000 / dartTotalMs).toStringAsFixed(0)}');
+  print('Aubio total time: ${aubioTotalMs.toStringAsFixed(2)} ms (${(aubioTotalMs / numFrames).toStringAsFixed(4)} ms/frame) | FPS: ${(numFrames * 1000 / aubioTotalMs).toStringAsFixed(0)}');
+  print('Ratio (D/A)     : ${(dartTotalMs / aubioTotalMs).toStringAsFixed(2)}x');
+  print('========================================================');
+
   // Cleanup native resources
   Aubio.bindings.del_aubio_filter(aubioFilter);
   Aubio.bindings.del_fvec(aubioInputVec);
+  Aubio.bindings.del_fvec(aubioOutVec);
   Aubio.deleteComplexVector(aubioFftGrain);
   Aubio.deletePhaseVocoder(aubioPvoc);
   aubioFilterBank.delete();

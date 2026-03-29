@@ -1,5 +1,4 @@
 import 'dart:math';
-
 import 'fft.dart';
 import 'types.dart';
 
@@ -21,23 +20,25 @@ class PhaseVocoder {
   }
 
   void slide(FloatVector newData) {
+    final int end = pvoc.end;
+    final int hopSize = pvoc.hopSize;
     // copy dataOld to data
-    for (int i = 0; i < pvoc.end; i++) {
+    for (int i = 0; i < end; i++) {
       pvoc.data.set(i, pvoc.dataOld.get(i));
     }
     // copy newData to dataOld
-    for (int i = 0; i < pvoc.hopSize; i++) {
-      pvoc.data.set(pvoc.end + i, newData.get(i));
+    for (int i = 0; i < hopSize; i++) {
+      pvoc.data.set(end + i, newData.get(i));
     }
     // shift data
-    for (int i = 0; i < pvoc.end; i++) {
-      pvoc.dataOld.set(i, pvoc.data.get(i + pvoc.hopSize));
+    for (int i = 0; i < end; i++) {
+      pvoc.dataOld.set(i, pvoc.data.get(i + hopSize));
     }
   }
 
   void applyWeight() {
-    assert(pvoc.w.getLength() == pvoc.data.getLength(), "weight length must match data length");
-    for (int i = 0; i < pvoc.data.getLength(); i++) {
+    final int len = pvoc.data.getLength();
+    for (int i = 0; i < len; i++) {
       pvoc.data.set(i, pvoc.data.get(i) * pvoc.w.get(i));
     }
   }
@@ -65,6 +66,10 @@ class PhaseVocoder {
 
   void processFFT(ComplexVector spectrumOut) {
     processFFTComplex();
+    
+    final int outLen = spectrumOut.getLength();
+    final int specLen = fft.compSpec.getLength();
+    
     // copy to output - phase
     if (fft.compSpec.get(0) < 0) {
       spectrumOut.setPhase(0, pi);
@@ -72,25 +77,24 @@ class PhaseVocoder {
       spectrumOut.setPhase(0, 0.0);
     }
 
-    for (int i = 1; i < spectrumOut.getLength() - 1; i++) {
-      spectrumOut.setPhase(i, atan2(fft.compSpec.get(fft.compSpec.getLength() - i), fft.compSpec.get(i)));
+    for (int i = 1; i < outLen - 1; i++) {
+      spectrumOut.setPhase(i, atan2(fft.compSpec.get(specLen - i), fft.compSpec.get(i)));
     }
 
-    if (fft.compSpec.get(fft.compSpec.getLength() ~/ 2) < 0) {
-      spectrumOut.setPhase(spectrumOut.getLength() - 1, pi);
+    if (fft.compSpec.get(specLen ~/ 2) < 0) {
+      spectrumOut.setPhase(outLen - 1, pi);
     } else {
-      spectrumOut.setPhase(spectrumOut.getLength() - 1, 0.0);
+      spectrumOut.setPhase(outLen - 1, 0.0);
     }
 
     // copy to output - norm
     spectrumOut.setNorm(0, fft.compSpec.get(0).abs());
-    for (int i = 1; i < spectrumOut.getLength() - 1; i++) {
-      spectrumOut.setNorm(
-        i,
-        sqrt(pow(fft.compSpec.get(i), 2) + pow(fft.compSpec.get(fft.compSpec.getLength() - i), 2)),
-      );
+    for (int i = 1; i < outLen - 1; i++) {
+      final double real = fft.compSpec.get(i);
+      final double imag = fft.compSpec.get(specLen - i);
+      spectrumOut.setNorm(i, sqrt(real * real + imag * imag));
     }
-    spectrumOut.setNorm(spectrumOut.getLength() - 1, fft.compSpec.get(fft.compSpec.getLength() ~/ 2).abs());
+    spectrumOut.setNorm(outLen - 1, fft.compSpec.get(specLen ~/ 2).abs());
   }
 
   void processFFTComplex() {
@@ -99,6 +103,7 @@ class PhaseVocoder {
     }
 
     ooura_rdft(fft.winSize, 1, fft.dIN, fft.ip, fft.w);
+    
     fft.compSpec.set(0, fft.getIn(0));
     fft.compSpec.set(fft.winSize ~/ 2, fft.getIn(1));
     for (int i = 1; i < fft.fftSize - 1; i++) {
