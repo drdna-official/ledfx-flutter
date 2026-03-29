@@ -1,7 +1,8 @@
 import 'dart:math';
 import 'dart:typed_data';
 
-void ooura_rdft(int n, int isgn, Float32List a, Int32List ip, Float32List w) {
+// from aubio library, slightly modified for dart
+void oouraRdft(int n, int isgn, Float32List a, Int32List ip, Float32List w) {
   int nw, nc;
   double xi;
 

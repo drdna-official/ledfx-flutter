@@ -1,13 +1,12 @@
 import 'dart:async' show StreamSubscription, Timer;
-import 'dart:ffi';
 import 'dart:math' show max, min;
 
 import 'package:flutter/foundation.dart';
+import 'package:ledfx/dsp/db.dart';
 import 'package:ledfx/dsp/digital_filter.dart';
 import 'package:ledfx/dsp/types.dart';
 import 'package:ledfx/dsp/vocoder.dart';
-import 'package:ledfx/ffi/aubio/aubio.dart';
-import 'package:ledfx/ffi/aubio/aubio_bindings.dart';
+import 'package:ledfx/dsp/resampler.dart';
 import 'package:ledfx/platform_interface/audio_bridge.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/src/audio/const.dart';
@@ -62,7 +61,7 @@ abstract class AudioInputSource {
 
   DigitalFilter? preEmphasis;
   PhaseVocoder? phaseVocoder;
-  Pointer<aubio_resampler_t>? resampler;
+  Resampler? resampler;
   FixedSizeBuffer? delayQueue;
 
   final List<double> _audioEventBuffer = [];
@@ -139,9 +138,7 @@ abstract class AudioInputSource {
     _streamSub = null;
     _audioStreamActive = false;
 
-    // Clear Pointers
     // Clean Pointers
-    if (resampler != null) resampler!.delete();
     resampler = null;
   }
 
@@ -212,9 +209,7 @@ abstract class AudioInputSource {
     final int outLen = MIC_RATE ~/ sampleRate;
     Float32List processed = Float32List(outLen);
     if (inRaw.length != outLen) {
-      if (resampler == null || resampler == nullptr) {
-        resampler = Aubio.createResampler(ResamplerType.SRC_SINC_FASTEST, inRaw.length, outLen);
-      }
+      resampler ??= Resampler(ResamplerType.sincFastest, inRaw.length, outLen);
       processed = resampler!.process(inRaw, outLen);
     } else {
       processed = inRaw;
@@ -289,7 +284,7 @@ abstract class AudioInputSource {
   // queried by an effect.
   void preProcessAudio() {
     //Calculate the current volume for silence detection
-    final db = Aubio.dbSPL(_rawAudioSample);
+    final db = dbSPL(_rawAudioSample);
 
     _volume = 1 + db / 100;
     _volume = max(0, min(1, _volume));

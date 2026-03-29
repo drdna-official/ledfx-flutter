@@ -66,10 +66,10 @@ class PhaseVocoder {
 
   void processFFT(ComplexVector spectrumOut) {
     processFFTComplex();
-    
+
     final int outLen = spectrumOut.getLength();
     final int specLen = fft.compSpec.getLength();
-    
+
     // copy to output - phase
     if (fft.compSpec.get(0) < 0) {
       spectrumOut.setPhase(0, pi);
@@ -102,8 +102,8 @@ class PhaseVocoder {
       fft.setIn(i, pvoc.data.get(i));
     }
 
-    ooura_rdft(fft.winSize, 1, fft.dIN, fft.ip, fft.w);
-    
+    oouraRdft(fft.winSize, 1, fft.dIN, fft.ip, fft.w);
+
     fft.compSpec.set(0, fft.getIn(0));
     fft.compSpec.set(fft.winSize ~/ 2, fft.getIn(1));
     for (int i = 1; i < fft.fftSize - 1; i++) {
