@@ -1,9 +1,8 @@
-import 'dart:ffi';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:ledfx/ffi/aubio/aubio.dart';
-import 'package:ledfx/ffi/aubio/aubio_bindings.dart';
+import 'package:ledfx/dsp/filterbank.dart';
+import 'package:ledfx/dsp/types.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/src/audio/audio.dart';
 import 'package:ledfx/src/audio/const.dart';
@@ -45,8 +44,8 @@ class Melbanks {
   late int melCount;
   late int melLength;
 
-  late List<Float64List> melbanks;
-  late List<Float64List> melbanksFiltered;
+  late List<Float32List> melbanks;
+  late List<Float32List> melbanksFiltered;
   late double minVolume;
 
   Melbanks({
@@ -92,8 +91,8 @@ class Melbanks {
     melCount = maxFreqs.length;
     melLength = samples;
 
-    melbanks = List<Float64List>.generate(melCount, (_) => Float64List(melLength));
-    melbanksFiltered = List<Float64List>.generate(melCount, (_) => Float64List(melLength));
+    melbanks = List<Float32List>.generate(melCount, (_) => Float32List(melLength));
+    melbanksFiltered = List<Float32List>.generate(melCount, (_) => Float32List(melLength));
 
     minVolume = audio.minVolume;
   }
@@ -129,8 +128,8 @@ class Melbank {
   final MelbankConfig config;
 
   late double powerFactor;
-  late Pointer<aubio_filterbank_t> filterBank;
-  late Float64List melbankFreqsFloat;
+  late Filterbank filterBank;
+  late Float32List melbankFreqsFloat;
   late Int32List melbankFreqs;
 
   late int lowsIndex;
@@ -139,7 +138,7 @@ class Melbank {
 
   late NumExpFilter melGain;
   late ListExpFilter melSmoothing;
-  late Float64ListExpFilter commonFilter;
+  late Float32ListExpFilter commonFilter;
   late ListExpFilter diffFilter;
 
   Melbank({required this.audio, required this.config}) {
@@ -151,10 +150,10 @@ class Melbank {
           hzTOmatt(config.maxFreq.toDouble()),
           config.samples + 2,
         );
-        melbankFreqsFloat = Float64List.fromList(melbankMatt.map((mel) => mattTOhz(mel)).toList());
+        melbankFreqsFloat = Float32List.fromList(melbankMatt.map((mel) => mattTOhz(mel)).toList());
 
-        filterBank = Aubio.createFilterBank(config.samples, FFT_SIZE);
-        filterBank.setTriangleBandsF32(freqs: melbankFreqsFloat, sampleRate: MIC_RATE);
+        filterBank = Filterbank(config.samples, FFT_SIZE);
+        filterBank.setTriangleBandsF32(freqs: FloatVector.fromArray(melbankFreqsFloat), sampleRate: MIC_RATE);
         melbankFreqsFloat = melbankFreqsFloat.sublist(1, melbankFreqsFloat.length - 1);
     }
 
@@ -177,13 +176,13 @@ class Melbank {
     // setup some of the common filters
     melGain = NumExpFilter(alphaDecay: 0.01, alphaRise: 0.99);
     melSmoothing = ListExpFilter(alphaDecay: 0.7, alphaRise: 0.99);
-    commonFilter = Float64ListExpFilter(alphaDecay: 0.99, alphaRise: 0.01);
+    commonFilter = Float32ListExpFilter(alphaDecay: 0.99, alphaRise: 0.01);
     diffFilter = ListExpFilter(alphaDecay: 0.15, alphaRise: 0.99);
   }
   // computes the melbank curve for frequency domain .
-  void execute(Pointer<cvec_t> freqDomain, Float64List melbank, Float64List filteredMelbank) {
+  void execute(ComplexVector freqDomain, Float32List melbank, Float32List filteredMelbank) {
     // copyListContents(melbank, filterBank.process(freqDomain, melbank.length));
-    melbank.setAll(0, filterBank.process(freqDomain, melbank.length));
+    filterBank.process(freqDomain, melbank);
 
     for (int i = 0; i < melbank.length; i++) {
       melbank[i] = pow(melbank[i], powerFactor).toDouble();
@@ -213,7 +212,7 @@ class Melbank {
   }
 
   void dispose() {
-    filterBank.delete();
+    // filterBank.delete();
   }
 }
 

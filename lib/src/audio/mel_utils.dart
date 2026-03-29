@@ -177,16 +177,16 @@ class NumExpFilter extends ExpFilter<double> {
 }
 
 // ============================================================================
-// 2. Float64List Implementation (Highest Performance for 1D Arrays)
+// 2. Float32List Implementation (Highest Performance for 1D Arrays)
 // ============================================================================
-class Float64ListExpFilter extends ExpFilter<Float64List> {
-  Float64ListExpFilter({super.initialValue, super.alphaDecay, super.alphaRise});
+class Float32ListExpFilter extends ExpFilter<Float32List> {
+  Float32ListExpFilter({super.initialValue, super.alphaDecay, super.alphaRise});
 
   @override
-  Float64List update(Float64List newValue) {
+  Float32List update(Float32List newValue) {
     if (_value == null) {
       // Create a discrete copy so we don't accidentally mutate the user's input array
-      _value = Float64List.fromList(newValue);
+      _value = Float32List.fromList(newValue);
       return _value!;
     }
 
@@ -245,16 +245,16 @@ class ListExpFilter extends ExpFilter<List<double>> {
 }
 
 // ============================================================================
-// 4. Matrix (List<Float64List>) Implementation
+// 4. Matrix (List<Float32List>) Implementation
 // ============================================================================
-class MatrixExpFilter extends ExpFilter<List<Float64List>> {
+class MatrixExpFilter extends ExpFilter<List<Float32List>> {
   MatrixExpFilter({super.initialValue, super.alphaDecay, super.alphaRise});
 
   @override
-  List<Float64List> update(List<Float64List> newValue) {
+  List<Float32List> update(List<Float32List> newValue) {
     if (_value == null) {
       // Deep copy all rows
-      _value = newValue.map((row) => Float64List.fromList(row)).toList();
+      _value = newValue.map((row) => Float32List.fromList(row)).toList();
       return _value!;
     }
 
@@ -264,8 +264,8 @@ class MatrixExpFilter extends ExpFilter<List<Float64List>> {
     assert(rows == newValue.length, "Row counts must match");
 
     for (int r = 0; r < rows; r++) {
-      final Float64List currentRow = currentMatrix[r];
-      final Float64List newRow = newValue[r];
+      final Float32List currentRow = currentMatrix[r];
+      final Float32List newRow = newValue[r];
       final int cols = currentRow.length;
 
       // Nested hot loop

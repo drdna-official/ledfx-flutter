@@ -1,7 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:matrix2d/matrix2d.dart';
-
 class Packets {
   static List<int> buidDRGBpacket(List<Uint8List> data, [int? timeout]) {
     // Generic DRGB packet encoding
@@ -14,14 +12,10 @@ class Packets {
     // 4 + n*3 	Blue Value
 
     List<int> header = [2, timeout ?? 1];
-    return [...header, ...data.flatten];
+    return [...header, ...data.expand((e) => e)];
   }
 
-  static List<int> buidDNRGBpacket(
-    List<Uint8List> data,
-    int ledStartIndex, [
-    int? timeout,
-  ]) {
+  static List<int> buidDNRGBpacket(List<Uint8List> data, int ledStartIndex, [int? timeout]) {
     // Generic DNRGB packet encoding
     // Max LEDs: 489 / packet
 
@@ -39,7 +33,7 @@ class Packets {
     headerBuffer.setUint8(2, (ledStartIndex >> 8) & 0xFF);
     headerBuffer.setUint8(3, ledStartIndex & 0xFF);
 
-    final List<int> flattened = data.flatten.cast();
+    final List<int> flattened = data.expand((e) => e).toList();
 
     // Calculate the total packet size: 4 bytes for the header + 3 bytes per LED.
     final totalSize = 4 + (flattened.length * 3);

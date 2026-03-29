@@ -32,21 +32,21 @@ class EnergyEffect extends Effect with AudioReactiveEffect implements EffectMixi
   int midsIdx = 0;
   int highsIdx = 0;
   bool beatNow = false;
-  late List<Float64List> p;
-  late Float64List lowsColor;
-  late Float64List midsColor;
-  late Float64List highColor;
+  late List<Float32List> p;
+  late Float32List lowsColor;
+  late Float32List midsColor;
+  late Float32List highColor;
   MatrixExpFilter? filter;
 
   @override
   void onActivate(int pixelCount) {
-    p = List.generate(pixelCount, (index) => Float64List(3));
+    p = List.generate(pixelCount, (index) => Float32List(3));
     final lc = config.lowsColor ?? Colors.red;
     final mc = config.midsColor ?? Colors.green;
     final hc = config.highColor ?? Colors.blue;
-    lowsColor = Float64List.fromList([lc.r * 255.0, lc.g * 255.0, lc.b * 255.0]);
-    midsColor = Float64List.fromList([mc.r * 255.0, mc.g * 255.0, mc.b * 255.0]);
-    highColor = Float64List.fromList([hc.r * 255.0, hc.g * 255.0, hc.b * 255.0]);
+    lowsColor = Float32List.fromList([lc.r * 255.0, lc.g * 255.0, lc.b * 255.0]);
+    midsColor = Float32List.fromList([mc.r * 255.0, mc.g * 255.0, mc.b * 255.0]);
+    highColor = Float32List.fromList([hc.r * 255.0, hc.g * 255.0, hc.b * 255.0]);
 
     // TODO: set the filter on config update, move from here
     final filterSensitivity = config.filterSensitiviy ?? 0.6;
@@ -76,7 +76,7 @@ class EnergyEffect extends Effect with AudioReactiveEffect implements EffectMixi
   @override
   void render() {
     // fill with zeros
-    setRows(p, p.length, Float64List(3));
+    setRows(p, p.length, Float32List(3));
 
     config.mixMode ??= MixMode.overlap;
 
@@ -110,13 +110,13 @@ class EnergyEffect extends Effect with AudioReactiveEffect implements EffectMixi
     }
   }
 
-  void setRows(List<Float64List> p, int end, Float64List color) {
+  void setRows(List<Float32List> p, int end, Float32List color) {
     for (int i = 0; i < min(end, p.length); i++) {
       p[i].setAll(0, color);
     }
   }
 
-  void addRows(List<Float64List> p, int end, Float64List color) {
+  void addRows(List<Float32List> p, int end, Float32List color) {
     for (int i = 0; i < min(end, p.length); i++) {
       p[i][0] += color[0];
       p[i][1] += color[1];

@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-List<Float64List> fillRainbow(List<Float64List> pixels, double initialHue, double deltaHue) {
+List<Float32List> fillRainbow(List<Float32List> pixels, double initialHue, double deltaHue) {
   // The input 'pixels' array is used only to determine the final size (pixelCount).
   final int pixelCount = pixels.length;
 
@@ -20,7 +20,7 @@ List<Float64List> fillRainbow(List<Float64List> pixels, double initialHue, doubl
   }
 
   // --- Convert to RGB ---
-  // The hsvToRgb function is expected to return the final List<Float64List>
+  // The hsvToRgb function is expected to return the final List<Float32List>
   // with dimensions [pixelCount, 3].
   return hsvToRgb(hues, sat, val);
 }
@@ -33,14 +33,14 @@ List<Float64List> fillRainbow(List<Float64List> pixels, double initialHue, doubl
 ///   value (double between 0 and 1): The value.
 ///
 /// Returns:
-///   List`<Float64List>`: An array of RGB values where each RGB value is in the range 0 to 255.
-List<Float64List> hsvToRgb(List<double> hues, double saturation, double value) {
+///   List`<Float32List>`: An array of RGB values where each RGB value is in the range 0 to 255.
+List<Float32List> hsvToRgb(List<double> hues, double saturation, double value) {
   if (hues.isEmpty) {
     return [];
   }
 
   int pixelCount = hues.length;
-  List<Float64List> rgbArray = List.generate(pixelCount, (_) => Float64List(3));
+  List<Float32List> rgbArray = List.generate(pixelCount, (_) => Float32List(3));
 
   // The six possible values for R, G, B channels based on intermediate calculation
   // final double p = value * (1.0 - saturation);

@@ -1,14 +1,15 @@
 import 'dart:async' show StreamSubscription, Timer;
-import 'dart:ffi';
 import 'dart:math' show max, min;
 
 import 'package:flutter/foundation.dart';
-import 'package:ledfx/ffi/aubio/aubio.dart';
-import 'package:ledfx/ffi/aubio/aubio_bindings.dart';
+import 'package:ledfx/dsp/db.dart';
+import 'package:ledfx/dsp/digital_filter.dart';
+import 'package:ledfx/dsp/types.dart';
+import 'package:ledfx/dsp/vocoder.dart';
+import 'package:ledfx/dsp/resampler.dart';
 import 'package:ledfx/platform_interface/audio_bridge.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/src/audio/const.dart';
-import 'package:ledfx/src/audio/dsp.dart';
 import 'package:ledfx/src/audio/melbank.dart';
 import 'package:ledfx/utils/utils.dart';
 
@@ -21,7 +22,6 @@ abstract class AudioInputSource {
   final double minVolume;
   final Duration delay;
 
-  late AudioDSP dsp;
   AudioBridge? _audio;
 
   AudioInputSource({
@@ -41,15 +41,15 @@ abstract class AudioInputSource {
   Timer? _timer;
   int _subscriberThreshould = 0;
 
-  // Native Buffers
-  late Pointer<fvec_t> _inputVec;
-  late Pointer<fvec_t> _processedVec;
-  late Pointer<cvec_t> _freqDomain;
-  Pointer<cvec_t> get freqDomain => _freqDomain;
+  // Buffers
+  late FloatVector _inputVec;
+  late FloatVector _processedVec;
+  late ComplexVector _freqDomain;
+  ComplexVector get freqDomain => _freqDomain;
 
-  late Float64List _rawAudioSample;
-  late Float64List _processedAudioSample;
-  Float64List audioSample({bool raw = false}) {
+  late Float32List _rawAudioSample;
+  late Float32List _processedAudioSample;
+  Float32List audioSample({bool raw = false}) {
     return raw ? _rawAudioSample : _processedAudioSample;
   }
 
@@ -59,9 +59,9 @@ abstract class AudioInputSource {
     return filtered ? _volumeFilter.value! : _volume;
   }
 
-  late Pointer<aubio_filter_t> preEmphasis;
-  late Pointer<aubio_pvoc_t> phaseVocoder;
-  Pointer<aubio_resampler_t>? resampler;
+  DigitalFilter? preEmphasis;
+  PhaseVocoder? phaseVocoder;
+  Resampler? resampler;
   FixedSizeBuffer? delayQueue;
 
   final List<double> _audioEventBuffer = [];
@@ -88,7 +88,7 @@ abstract class AudioInputSource {
           debugPrint(message);
           break;
 
-        case AudioEvent(:final Float64List data):
+        case AudioEvent(:final Float32List data):
           // Convert and accumulate into frames
           // final frames = processAudioByteChunk(data);
           // for (final frame in frames) {
@@ -107,24 +107,23 @@ abstract class AudioInputSource {
     // _audio!.getDevices();
 
     // Setup a pre-emphasis filter to balance the input volume of lows to highs
-    preEmphasis = Aubio.digitalFilter(3);
+    preEmphasis = DigitalFilter(3);
     final selectedCoeff = ledfx.config.melbankConfig?.coeffType ?? CoeffType.mattmel;
     switch (selectedCoeff) {
       case CoeffType.mattmel:
-        preEmphasis.setBiquad(0.8268, -1.6536, 0.8268, -1.6536, 0.6536);
+        preEmphasis!.setBiquad(0.8268, -1.6536, 0.8268, -1.6536, 0.6536);
       // default:
       //   preEmphasis.setBiquad(0, 0.85870, -1.71740, 0.85870, -1.71605, 0.71874);
     }
-    _rawAudioSample = Float64List.fromList(List.filled(MIC_RATE ~/ sampleRate, 0));
+    _rawAudioSample = Float32List.fromList(List.filled(MIC_RATE ~/ sampleRate, 0));
+    phaseVocoder = PhaseVocoder(FFT_SIZE, MIC_RATE ~/ sampleRate);
+    _inputVec = FloatVector.create(MIC_RATE ~/ sampleRate);
+    _processedVec = FloatVector.create(MIC_RATE ~/ sampleRate);
 
-    phaseVocoder = Aubio.createPhaseVocoder(FFT_SIZE, MIC_RATE ~/ sampleRate);
+    _freqDomain = ComplexVector.create(FFT_SIZE);
 
-    _inputVec = Aubio.bindings.new_fvec(MIC_RATE ~/ sampleRate);
-    _processedVec = Aubio.bindings.new_fvec(MIC_RATE ~/ sampleRate);
-    _freqDomain = Aubio.createComplexVector(FFT_SIZE);
-
-    _rawAudioSample = Float64List(MIC_RATE ~/ sampleRate);
-    _processedAudioSample = Float64List(MIC_RATE ~/ sampleRate);
+    _rawAudioSample = Float32List(MIC_RATE ~/ sampleRate);
+    _processedAudioSample = Float32List(MIC_RATE ~/ sampleRate);
 
     final samplesToDelay = (0.001 * delay.inMilliseconds * sampleRate).toInt();
     if (samplesToDelay > 0) {
@@ -139,16 +138,8 @@ abstract class AudioInputSource {
     _streamSub = null;
     _audioStreamActive = false;
 
-    // Clear Pointers
     // Clean Pointers
-    preEmphasis.delete();
-    phaseVocoder.delete();
-    if (resampler != null) resampler!.delete();
     resampler = null;
-
-    Aubio.bindings.del_fvec(_inputVec);
-    Aubio.bindings.del_fvec(_processedVec);
-    _freqDomain.delete();
   }
 
   // void queryDevices() {
@@ -188,9 +179,9 @@ abstract class AudioInputSource {
   // }
 
   /// Convert PCM16 bytes → normalized float samples
-  Float64List pcm16ToFloat32(Uint8List bytes) {
+  Float32List pcm16ToFloat32(Uint8List bytes) {
     final bd = ByteData.sublistView(bytes);
-    final samples = Float64List(bytes.lengthInBytes ~/ 2);
+    final samples = Float32List(bytes.lengthInBytes ~/ 2);
     for (int i = 0; i < samples.length; i++) {
       samples[i] = bd.getInt16(i * 2, Endian.little) / 32768.0;
     }
@@ -198,14 +189,14 @@ abstract class AudioInputSource {
   }
 
   /// Process new PCM chunk into fixed frames
-  List<Float64List> processAudioByteChunk(Uint8List bytes) {
+  List<Float32List> processAudioByteChunk(Uint8List bytes) {
     final samples = pcm16ToFloat32(bytes);
     _audioEventBuffer.addAll(samples);
     final int frameSize = MIC_RATE ~/ sampleRate;
 
-    final frames = <Float64List>[];
+    final frames = <Float32List>[];
     while (_audioEventBuffer.length >= frameSize) {
-      frames.add(Float64List.fromList(_audioEventBuffer.sublist(0, frameSize)));
+      frames.add(Float32List.fromList(_audioEventBuffer.sublist(0, frameSize)));
       _audioEventBuffer.removeRange(0, frameSize);
     }
     return frames;
@@ -214,13 +205,11 @@ abstract class AudioInputSource {
   int inLen = 0;
   int outLen = 0;
 
-  void audioSampleCallback(Float64List inRaw) {
+  void audioSampleCallback(Float32List inRaw) {
     final int outLen = MIC_RATE ~/ sampleRate;
-    Float64List processed = Float64List(outLen);
+    Float32List processed = Float32List(outLen);
     if (inRaw.length != outLen) {
-      if (resampler == null || resampler == nullptr) {
-        resampler = Aubio.createResampler(ResamplerType.SRC_SINC_FASTEST, inRaw.length, outLen);
-      }
+      resampler ??= Resampler(ResamplerType.sincFastest, inRaw.length, outLen);
       processed = resampler!.process(inRaw, outLen);
     } else {
       processed = inRaw;
@@ -295,7 +284,7 @@ abstract class AudioInputSource {
   // queried by an effect.
   void preProcessAudio() {
     //Calculate the current volume for silence detection
-    final db = Aubio.dbSPL(_rawAudioSample);
+    final db = dbSPL(_rawAudioSample);
 
     _volume = 1 + db / 100;
     _volume = max(0, min(1, _volume));
@@ -309,21 +298,21 @@ abstract class AudioInputSource {
       _processedAudioSample = _rawAudioSample;
 
       // Copy to native input buffer
-      Aubio.copyToFvec(_rawAudioSample, _inputVec);
+      _inputVec.copyFrom(_rawAudioSample);
 
-      if (preEmphasis != nullptr) {
+      if (preEmphasis != null) {
         // Pre-emphasis filter
-        Aubio.bindings.aubio_filter_do_outplace(preEmphasis.cast(), _inputVec, _processedVec);
-        Aubio.copyFromFvec(_processedVec, _processedAudioSample);
+        preEmphasis!.process(_inputVec, _processedVec);
+        _processedVec.copyTo(_processedAudioSample);
 
         // Pass into the phase vocoder to get a windowed FFT
-        phaseVocoder.doAnalyse(_processedVec, _freqDomain);
+        phaseVocoder!.analyze(_processedVec, _freqDomain);
       } else {
         // Pass into the phase vocoder to get a windowed FFT
-        phaseVocoder.doAnalyse(_inputVec, _freqDomain);
+        phaseVocoder!.analyze(_inputVec, _freqDomain);
       }
     } else {
-      Aubio.bindings.cvec_zeros(_freqDomain);
+      _freqDomain.clear();
     }
   }
 }
@@ -391,10 +380,6 @@ class AudioAnalysisSource extends AudioInputSource {
 
   void initialiseAnalysis() {
     melbanks = Melbanks(ledfx: ledfx, audio: this);
-
-    super.dsp = AudioDSP(fftSize, MIC_RATE ~/ sampleRate, sampleRate)
-      ..pitchUnit = PitchUnit.midi
-      ..pitchTolerance = pitchTolerance;
 
     //bar oscillator
     beatCounter = 0;
