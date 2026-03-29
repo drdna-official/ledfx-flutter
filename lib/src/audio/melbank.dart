@@ -1,11 +1,8 @@
-import 'dart:ffi';
 import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:ledfx/dsp/filterbank.dart';
 import 'package:ledfx/dsp/types.dart';
-import 'package:ledfx/ffi/aubio/aubio.dart';
-import 'package:ledfx/ffi/aubio/aubio_bindings.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/src/audio/audio.dart';
 import 'package:ledfx/src/audio/const.dart';
@@ -183,14 +180,9 @@ class Melbank {
     diffFilter = ListExpFilter(alphaDecay: 0.15, alphaRise: 0.99);
   }
   // computes the melbank curve for frequency domain .
-  void execute(Pointer<cvec_t> freqDomain, Float64List melbank, Float64List filteredMelbank) {
+  void execute(ComplexVector freqDomain, Float64List melbank, Float64List filteredMelbank) {
     // copyListContents(melbank, filterBank.process(freqDomain, melbank.length));
-    final out = ComplexVector.create(FFT_SIZE);
-    for (var i = 0; i < (FFT_SIZE ~/ 2 + 1); i++) {
-      out.setNorm(i, Aubio.bindings.cvec_norm_get_sample(freqDomain, i));
-      out.setPhase(i, Aubio.bindings.cvec_phas_get_sample(freqDomain, i));
-    }
-    filterBank.process(out, melbank);
+    filterBank.process(freqDomain, melbank);
 
     for (int i = 0; i < melbank.length; i++) {
       melbank[i] = pow(melbank[i], powerFactor).toDouble();

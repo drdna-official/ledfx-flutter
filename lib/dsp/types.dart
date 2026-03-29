@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:ledfx/dsp/utils.dart';
+
 extension type ComplexVector(Float64List _data) {
   // _data = [length, ...norm, ...phase]
   static const int headerSize = 1;
@@ -8,6 +10,10 @@ extension type ComplexVector(Float64List _data) {
   static ComplexVector create(int length) {
     assert(length > 0, "length must be > 0");
     return ComplexVector(Float64List(headerSize + (length ~/ 2 + 1) * 2))..setLength(length ~/ 2 + 1);
+  }
+
+  void clear() {
+    _data.fillRange(headerSize, _data.length, 0.0);
   }
 
   int getLength() => _data[0].toInt();
@@ -34,6 +40,16 @@ extension type FloatVector(Float64List _data) {
     return vec;
   }
 
+  void copyFrom(Float64List list) {
+    assert(list.length == getLength(), "list length must match vector length");
+    _data.setRange(headerSize, headerSize + list.length, list);
+  }
+
+  void copyTo(Float64List list) {
+    assert(list.length == getLength(), "list length must match vector length");
+    list.setRange(0, getLength(), _data, headerSize);
+  }
+
   int getLength() => _data[0].toInt();
   void setLength(int val) => _data[0] = val.toDouble();
 
@@ -47,7 +63,30 @@ extension type FloatVector(Float64List _data) {
       set(i, pow(get(i), power).toDouble());
     }
   }
+
+  void clear() {
+    _data.fillRange(headerSize, _data.length, 0.0);
+  }
+
+  static FloatVector newWindow(WindowType type, int length) {
+    FloatVector w = FloatVector.create(length);
+    switch (type) {
+      case WindowType.hanning:
+        for (int i = 0; i < length; i++) {
+          w.set(i, 0.5 - 0.5 * cos(2.0 * pi * i / length));
+        }
+        break;
+      case WindowType.hanningz:
+        for (int i = 0; i < length; i++) {
+          w.set(i, 0.5 * (1.0 - cos(2.0 * pi * i / length)));
+        }
+        break;
+    }
+    return w;
+  }
 }
+
+enum WindowType { hanning, hanningz }
 
 extension type FilterBankData(Float64List _data) {
   // _data = [windowSize, noFilters, norm, power, filterCol, filterRow, ...filterCoeffs]
@@ -94,5 +133,213 @@ extension type FilterBankData(Float64List _data) {
         output[k] += input.get(j) * get(k, j);
       }
     }
+  }
+}
+
+extension type DigitalFilterData(Float64List _data) {
+  // avoid using Float32List
+  // _data = [order, samplerate, ...a, ...b, ...x, ...y]
+  static const int headerSize = 2;
+
+  static DigitalFilterData create(int order) {
+    // validate order parameter to prevent unrealistic allocations
+    if (order < 1) {
+      throw Exception("order must be > 0");
+    }
+    // typical values are 3, 5, or 7; allow up to 512 as reasonable upper bound
+    if (order > 512) {
+      throw Exception("order must be <= 512");
+    }
+
+    return DigitalFilterData(Float64List(order * 4 + headerSize))
+      ..setOrder(order)
+      // by default samplerate is not set
+      ..setSamplerate(0)
+      // set default to identity
+      ..setA(0, 1.0)
+      ..setB(0, 1.0);
+  }
+
+  int getOrder() => _data[0].toInt();
+  int getSamplerate() => _data[1].toInt();
+
+  setOrder(int val) => _data[0] = val.toDouble();
+  setSamplerate(int val) => _data[1] = val.toDouble();
+
+  double getA(int index) => _data[headerSize + index];
+  double getB(int index) => _data[headerSize + getOrder() + index];
+  double getX(int index) => _data[headerSize + getOrder() * 2 + index];
+  double getY(int index) => _data[headerSize + getOrder() * 3 + index];
+
+  void setA(int index, double val) => _data[headerSize + index] = val;
+  void setB(int index, double val) => _data[headerSize + getOrder() + index] = val;
+  void setX(int index, double val) => _data[headerSize + getOrder() * 2 + index] = val;
+  void setY(int index, double val) => _data[headerSize + getOrder() * 3 + index] = val;
+
+  void clear() {
+    for (int i = headerSize; i < _data.length; i++) {
+      _data[i] = 0;
+    }
+  }
+}
+
+class FFTData {
+  const FFTData._({
+    required this.winSize,
+    required this.fftSize,
+    required this.dIN,
+    required this.dOut,
+    required this.w,
+    required this.ip,
+    required this.compSpec,
+  });
+
+  final Float64List dIN;
+  final Float64List dOut;
+  final Float64List w;
+  final Int32List ip;
+  final FloatVector compSpec;
+
+  final int winSize;
+  final int fftSize;
+
+  static FFTData create(int winSize) {
+    if (winSize < 2) {
+      throw Exception("fft: got winSize $winSize, can not be <2");
+    }
+    if (!isPowerOfTwo(winSize)) {
+      throw Exception("fft: got winSize $winSize, can not be odd");
+    }
+    final fftSize = winSize ~/ 2 + 1;
+
+    return FFTData._(
+      winSize: winSize,
+      fftSize: fftSize,
+      dIN: Float64List(winSize),
+      dOut: Float64List(winSize),
+      w: Float64List(fftSize),
+      ip: Int32List(fftSize),
+      compSpec: FloatVector.create(winSize),
+    );
+  }
+
+  void setIn(int index, double data) => dIN[index] = data;
+  double getIn(int index) => dIN[index];
+
+  void setOut(int index, double data) => dOut[index] = data;
+  double getOut(int index) => dOut[index];
+
+  void setW(int index, double data) => w[index] = data;
+  double getW(int index) => w[index];
+
+  void setIp(int index, int data) => ip[index] = data;
+  int getIp(int index) => ip[index];
+}
+
+class PVOCData {
+  PVOCData._({
+    required this.winSize,
+    required this.hopSize,
+    required this.start,
+    required this.end,
+    required this.scale,
+    required this.endDataSize,
+    required this.hopDataSize,
+    required this.data,
+    required this.dataOld,
+    required this.synth,
+    required this.synthOld,
+    required this.w,
+  });
+
+  // winSize: grain length
+  // hopSize: overlap step
+  // start: start of the window
+  // end: end of the window
+  // scale: scaling factor for synthesis
+  // end_datasize: size of the end data
+  // hop_datasize: size of the hop data
+  // data: current input grain, [winSize] frames
+  // dataold: memory of past grain, [winSize-hopSize] frames
+  // synth: current output grain, [winSize] frames
+  // synthold: memory of past grain, [winSize-hopSize] frames
+  // w: grain window [winSize]
+  final int winSize;
+  final int hopSize;
+  final int start;
+  final int end;
+  final double scale;
+  final int endDataSize;
+  final int hopDataSize;
+  final FloatVector data;
+  final FloatVector dataOld;
+  final FloatVector synth;
+  final FloatVector synthOld;
+  final FloatVector w;
+
+  static const int headerSize = 12;
+
+  static PVOCData create(int winSize, int hopSize) {
+    if (winSize < 2) {
+      throw Exception("pvoc: got winSize $winSize, can not be <2");
+    }
+    if (!isPowerOfTwo(winSize)) {
+      throw Exception("pvoc: got winSize $winSize, can not be odd");
+    }
+    if (hopSize < 1) {
+      throw Exception("pvoc: got hopSize $hopSize, can not be <1");
+    }
+    if (hopSize > winSize) {
+      throw Exception("pvoc: got hopSize $hopSize, can not be >winSize");
+    }
+
+    final data = FloatVector.create(winSize);
+    final synth = FloatVector.create(winSize);
+
+    late FloatVector dataOld;
+    late FloatVector synthOld;
+    if (winSize > hopSize) {
+      dataOld = FloatVector.create(winSize - hopSize);
+      synthOld = FloatVector.create(winSize - hopSize);
+    } else {
+      dataOld = FloatVector.create(1);
+      synthOld = FloatVector.create(1);
+    }
+
+    // Window
+    final w = FloatVector.newWindow(WindowType.hanningz, winSize);
+    // more than 50% overlap, overlap anyway else less than 50% overlap, reset latest grain trail
+    final start = (winSize < 2 * hopSize) ? 0 : winSize - 2 * hopSize;
+    final end = (winSize > hopSize) ? winSize - hopSize : 0;
+
+    final endDataSize = end;
+    final hopDataSize = hopSize;
+
+    // for reconstruction with 75% overlap
+    late double scale;
+    if (winSize == 4 * hopSize) {
+      scale = 2 / 3;
+    } else if (winSize == 8 * hopSize) {
+      scale = 1 / 3;
+    } else if (winSize == 2 * hopSize) {
+      scale = 1.0;
+    } else {
+      scale = 5.0;
+    }
+
+    return PVOCData._(
+      winSize: winSize,
+      hopSize: hopSize,
+      start: start,
+      end: end,
+      scale: scale,
+      endDataSize: endDataSize,
+      hopDataSize: hopDataSize,
+      data: data,
+      dataOld: dataOld,
+      synth: synth,
+      synthOld: synthOld,
+      w: w,
+    );
   }
 }

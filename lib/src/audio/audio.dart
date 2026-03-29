@@ -3,12 +3,14 @@ import 'dart:ffi';
 import 'dart:math' show max, min;
 
 import 'package:flutter/foundation.dart';
+import 'package:ledfx/dsp/digital_filter.dart';
+import 'package:ledfx/dsp/types.dart';
+import 'package:ledfx/dsp/vocoder.dart';
 import 'package:ledfx/ffi/aubio/aubio.dart';
 import 'package:ledfx/ffi/aubio/aubio_bindings.dart';
 import 'package:ledfx/platform_interface/audio_bridge.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/src/audio/const.dart';
-import 'package:ledfx/src/audio/dsp.dart';
 import 'package:ledfx/src/audio/melbank.dart';
 import 'package:ledfx/utils/utils.dart';
 
@@ -21,7 +23,6 @@ abstract class AudioInputSource {
   final double minVolume;
   final Duration delay;
 
-  late AudioDSP dsp;
   AudioBridge? _audio;
 
   AudioInputSource({
@@ -41,11 +42,11 @@ abstract class AudioInputSource {
   Timer? _timer;
   int _subscriberThreshould = 0;
 
-  // Native Buffers
-  late Pointer<fvec_t> _inputVec;
-  late Pointer<fvec_t> _processedVec;
-  late Pointer<cvec_t> _freqDomain;
-  Pointer<cvec_t> get freqDomain => _freqDomain;
+  // Buffers
+  late FloatVector _inputVec;
+  late FloatVector _processedVec;
+  late ComplexVector _freqDomain;
+  ComplexVector get freqDomain => _freqDomain;
 
   late Float64List _rawAudioSample;
   late Float64List _processedAudioSample;
@@ -59,8 +60,8 @@ abstract class AudioInputSource {
     return filtered ? _volumeFilter.value! : _volume;
   }
 
-  late Pointer<aubio_filter_t> preEmphasis;
-  late Pointer<aubio_pvoc_t> phaseVocoder;
+  DigitalFilter? preEmphasis;
+  PhaseVocoder? phaseVocoder;
   Pointer<aubio_resampler_t>? resampler;
   FixedSizeBuffer? delayQueue;
 
@@ -107,21 +108,20 @@ abstract class AudioInputSource {
     // _audio!.getDevices();
 
     // Setup a pre-emphasis filter to balance the input volume of lows to highs
-    preEmphasis = Aubio.digitalFilter(3);
+    preEmphasis = DigitalFilter(3);
     final selectedCoeff = ledfx.config.melbankConfig?.coeffType ?? CoeffType.mattmel;
     switch (selectedCoeff) {
       case CoeffType.mattmel:
-        preEmphasis.setBiquad(0.8268, -1.6536, 0.8268, -1.6536, 0.6536);
+        preEmphasis!.setBiquad(0.8268, -1.6536, 0.8268, -1.6536, 0.6536);
       // default:
       //   preEmphasis.setBiquad(0, 0.85870, -1.71740, 0.85870, -1.71605, 0.71874);
     }
     _rawAudioSample = Float64List.fromList(List.filled(MIC_RATE ~/ sampleRate, 0));
+    phaseVocoder = PhaseVocoder(FFT_SIZE, MIC_RATE ~/ sampleRate);
+    _inputVec = FloatVector.create(MIC_RATE ~/ sampleRate);
+    _processedVec = FloatVector.create(MIC_RATE ~/ sampleRate);
 
-    phaseVocoder = Aubio.createPhaseVocoder(FFT_SIZE, MIC_RATE ~/ sampleRate);
-
-    _inputVec = Aubio.bindings.new_fvec(MIC_RATE ~/ sampleRate);
-    _processedVec = Aubio.bindings.new_fvec(MIC_RATE ~/ sampleRate);
-    _freqDomain = Aubio.createComplexVector(FFT_SIZE);
+    _freqDomain = ComplexVector.create(FFT_SIZE);
 
     _rawAudioSample = Float64List(MIC_RATE ~/ sampleRate);
     _processedAudioSample = Float64List(MIC_RATE ~/ sampleRate);
@@ -141,14 +141,8 @@ abstract class AudioInputSource {
 
     // Clear Pointers
     // Clean Pointers
-    preEmphasis.delete();
-    phaseVocoder.delete();
     if (resampler != null) resampler!.delete();
     resampler = null;
-
-    Aubio.bindings.del_fvec(_inputVec);
-    Aubio.bindings.del_fvec(_processedVec);
-    _freqDomain.delete();
   }
 
   // void queryDevices() {
@@ -309,21 +303,21 @@ abstract class AudioInputSource {
       _processedAudioSample = _rawAudioSample;
 
       // Copy to native input buffer
-      Aubio.copyToFvec(_rawAudioSample, _inputVec);
+      _inputVec.copyFrom(_rawAudioSample);
 
-      if (preEmphasis != nullptr) {
+      if (preEmphasis != null) {
         // Pre-emphasis filter
-        Aubio.bindings.aubio_filter_do_outplace(preEmphasis.cast(), _inputVec, _processedVec);
-        Aubio.copyFromFvec(_processedVec, _processedAudioSample);
+        preEmphasis!.process(_inputVec, _processedVec);
+        _processedVec.copyTo(_processedAudioSample);
 
         // Pass into the phase vocoder to get a windowed FFT
-        phaseVocoder.doAnalyse(_processedVec, _freqDomain);
+        phaseVocoder!.analyze(_processedVec, _freqDomain);
       } else {
         // Pass into the phase vocoder to get a windowed FFT
-        phaseVocoder.doAnalyse(_inputVec, _freqDomain);
+        phaseVocoder!.analyze(_inputVec, _freqDomain);
       }
     } else {
-      Aubio.bindings.cvec_zeros(_freqDomain);
+      _freqDomain.clear();
     }
   }
 }
@@ -391,10 +385,6 @@ class AudioAnalysisSource extends AudioInputSource {
 
   void initialiseAnalysis() {
     melbanks = Melbanks(ledfx: ledfx, audio: this);
-
-    super.dsp = AudioDSP(fftSize, MIC_RATE ~/ sampleRate, sampleRate)
-      ..pitchUnit = PitchUnit.midi
-      ..pitchTolerance = pitchTolerance;
 
     //bar oscillator
     beatCounter = 0;
