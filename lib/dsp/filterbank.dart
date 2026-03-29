@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:ledfx/dsp/types.dart';
-import 'package:ledfx/dsp/utils.dart';
+import 'types.dart';
+import 'utils.dart';
 
 class Filterbank {
   final FilterBankData filterBank;
@@ -9,7 +9,7 @@ class Filterbank {
       assert(winSize > 0, "winSize must be > 0"),
       filterBank = FilterBankData.create(noFilters, winSize);
 
-  void process(ComplexVector input, Float64List output) {
+  void process(ComplexVector input, Float32List output) {
     final FloatVector temp = FloatVector.create(input.getLength());
     // copy input to temp
     for (int i = 0; i < input.getLength(); i++) {

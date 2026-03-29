@@ -39,7 +39,7 @@ mixin GradientAudioEffect on Effect {
     return max(pixelCount, 256);
   }();
 
-  List<Float64List> applyGradient(List<double> y) {
+  List<Float32List> applyGradient(List<double> y) {
     assertGradient();
 
     // output = self.get_gradient() * y
@@ -80,7 +80,7 @@ mixin GradientAudioEffect on Effect {
     //   }
     // }
 
-    final t = transposedOutput.map((e) => Float64List.fromList(e)).toList();
+    final t = transposedOutput.map((e) => Float32List.fromList(e)).toList();
     return t;
   }
 
@@ -309,7 +309,7 @@ mixin GradientAudioEffect on Effect {
     }
   }
 
-  // Helper method based on your provided rollList, adapted for Float64List
+  // Helper method based on your provided rollList, adapted for Float32List
   List<double> _rollChannel(List<double> list, int offset) {
     if (list.isEmpty) return [];
 

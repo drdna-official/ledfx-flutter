@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:ledfx/src/audio/audio.dart';
 import 'package:ledfx/src/effects/effect.dart';
 import 'package:ledfx/src/virtual.dart';
@@ -85,10 +87,10 @@ mixin AudioReactiveEffect on Effect {
     return _cachedInputMelLength!;
   }();
 
-  static final Map<int, List<List<double>>> _linspaceCache = {};
+  static final Map<int, List<Float32List>> _linspaceCache = {};
   static const int _cacheMaxSize = 16;
   // Equivalent to Python's _melbank_interp_linspaces(self, size)
-  List<List<double>> getMelbankInterpLinspaces(int size) {
+  List<Float32List> getMelbankInterpLinspaces(int size) {
     // Check the cache first (Memoization)
     if (_linspaceCache.containsKey(size)) {
       return _linspaceCache[size]!;
@@ -103,7 +105,7 @@ mixin AudioReactiveEffect on Effect {
 
     // 3. Store and Return
     // Return (new, old)
-    final List<List<double>> result = [newArr, old];
+    final List<Float32List> result = [Float32List.fromList(newArr), Float32List.fromList(old)];
 
     // Add to cache (Basic LRU simulation: If size is exceeded, clear all for simplicity)
     if (_linspaceCache.length >= _cacheMaxSize) {

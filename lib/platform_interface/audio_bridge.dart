@@ -12,9 +12,9 @@ sealed class RecordingEvent {
 }
 
 class AudioEvent extends RecordingEvent {
-  final Float64List data;
+  final Float32List data;
   AudioEvent(List<Object?> adata)
-    : data = Float64List.fromList(
+    : data = Float32List.fromList(
         adata.map((e) {
           return (e == null) ? 0.0 : e as double;
         }).toList(),

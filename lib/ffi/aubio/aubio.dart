@@ -3,8 +3,8 @@
 import 'dart:ffi' as ffi;
 import 'dart:ffi';
 import 'dart:io' show Platform;
+import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
-import 'package:flutter/foundation.dart';
 
 import 'aubio_bindings.dart'; // Updated import path
 
@@ -101,8 +101,8 @@ class Aubio {
   }
 
   // Phase vocoder analysis (time -> frequency domain)
-  static Pointer<cvec_t> phaseVocoderAnalysis(Pointer<aubio_pvoc_t> pvoc, Float64List audioInput, int windowSize) {
-    final inputVec = createFvecFromFloat64List(audioInput);
+  static Pointer<cvec_t> phaseVocoderAnalysis(Pointer<aubio_pvoc_t> pvoc, Float32List audioInput, int windowSize) {
+    final inputVec = createFvecFromFloat32List(audioInput);
     final fftGrain = bindings.new_cvec(windowSize);
 
     bindings.aubio_pvoc_do(pvoc, inputVec, fftGrain);
@@ -125,15 +125,15 @@ class Aubio {
     bindings.fvec_zeros(vec);
   }
 
-  /// Helper to copy Float64List into an existing fvec_t
-  static void copyToFvec(Float64List data, Pointer<fvec_t> vec) {
+  /// Helper to copy Float32List into an existing fvec_t
+  static void copyToFvec(Float32List data, Pointer<fvec_t> vec) {
     final ptr = bindings.fvec_get_data(vec);
     for (int i = 0; i < data.length; i++) {
       ptr[i] = data[i];
     }
   }
 
-  static void copyFromFvec(Pointer<fvec_t> vec, Float64List data) {
+  static void copyFromFvec(Pointer<fvec_t> vec, Float32List data) {
     final ptr = bindings.fvec_get_data(vec);
     for (int i = 0; i < data.length; i++) {
       data[i] = ptr[i];
@@ -141,13 +141,13 @@ class Aubio {
   }
 
   // Phase vocoder synthesis (frequency -> time domain)
-  static Float64List phaseVocoderSynthesis(Pointer<aubio_pvoc_t> pvoc, Pointer<cvec_t> fftGrain, int hopSize) {
+  static Float32List phaseVocoderSynthesis(Pointer<aubio_pvoc_t> pvoc, Pointer<cvec_t> fftGrain, int hopSize) {
     final outputVec = bindings.new_fvec(hopSize);
 
     bindings.aubio_pvoc_rdo(pvoc, fftGrain, outputVec);
 
-    // Convert to Dart Float64List
-    final result = Float64List(hopSize);
+    // Convert to Dart Float32List
+    final result = Float32List(hopSize);
     for (int i = 0; i < hopSize; i++) {
       result[i] = bindings.fvec_get_sample(outputVec, i);
     }
@@ -157,10 +157,10 @@ class Aubio {
   }
 
   // Extract magnitude and phase from complex vector
-  static (Float64List, Float64List) extractMagnitudePhase(Pointer<cvec_t> fftGrain, int windowSize) {
+  static (Float32List, Float32List) extractMagnitudePhase(Pointer<cvec_t> fftGrain, int windowSize) {
     final length = (windowSize ~/ 2) + 1;
-    final magnitudes = Float64List(length);
-    final phases = Float64List(length);
+    final magnitudes = Float32List(length);
+    final phases = Float32List(length);
 
     for (int i = 0; i < length; i++) {
       magnitudes[i] = bindings.cvec_norm_get_sample(fftGrain, i);
@@ -171,7 +171,7 @@ class Aubio {
   }
 
   // Set magnitude and phase in complex vector
-  static void setMagnitudePhase(Pointer<cvec_t> fftGrain, Float64List magnitudes, Float64List phases) {
+  static void setMagnitudePhase(Pointer<cvec_t> fftGrain, Float32List magnitudes, Float32List phases) {
     final length = magnitudes.length;
     for (int i = 0; i < length; i++) {
       bindings.cvec_norm_set_sample(fftGrain, magnitudes[i], i);
@@ -200,8 +200,8 @@ class Aubio {
     bindings.del_aubio_onset(onset);
   }
 
-  static double detectOnset(Pointer<aubio_onset_t> onset, Float64List audioData) {
-    final inputVec = createFvecFromFloat64List(audioData);
+  static double detectOnset(Pointer<aubio_onset_t> onset, Float32List audioData) {
+    final inputVec = createFvecFromFloat32List(audioData);
     final outputVec = bindings.new_fvec(1);
 
     bindings.aubio_onset_do(onset, inputVec, outputVec);
@@ -225,8 +225,8 @@ class Aubio {
     bindings.del_aubio_pitch(pitch);
   }
 
-  static double detectPitch(Pointer<aubio_pitch_t> pitch, Float64List audioData) {
-    final inputVec = createFvecFromFloat64List(audioData);
+  static double detectPitch(Pointer<aubio_pitch_t> pitch, Float32List audioData) {
+    final inputVec = createFvecFromFloat32List(audioData);
     final outputVec = bindings.new_fvec(1);
 
     bindings.aubio_pitch_do(pitch, inputVec, outputVec);
@@ -239,7 +239,7 @@ class Aubio {
   }
 
   // Helper method to create fvec from Flutter data
-  static Pointer<fvec_t> createFvecFromFloat64List(Float64List data) {
+  static Pointer<fvec_t> createFvecFromFloat32List(Float32List data) {
     final vec = bindings.new_fvec(data.length);
 
     for (int i = 0; i < data.length; i++) {
@@ -249,7 +249,7 @@ class Aubio {
     return vec;
   }
 
-  static double dbSPL(Float64List inputFrame) {
+  static double dbSPL(Float32List inputFrame) {
     final int n = inputFrame.length;
     final ffi.Pointer<fvec_t> inputVec = bindings.new_fvec(n);
     try {
@@ -273,7 +273,7 @@ extension DigitalFilterExt on Pointer<aubio_filter_t> {
     return Aubio.bindings.aubio_filter_set_biquad(cast(), b0, b1, b2, a1, a2);
   }
 
-  Float64List? processAudioFrame(Float64List inputFrame) {
+  Float32List? processAudioFrame(Float32List inputFrame) {
     final frameSize = inputFrame.length;
     // Create aubio fvec_t for input
     final inputVec = Aubio.bindings.new_fvec(frameSize);
@@ -292,7 +292,7 @@ extension DigitalFilterExt on Pointer<aubio_filter_t> {
       final inputData = Aubio.bindings.fvec_get_data(inputVec);
       final outputData = Aubio.bindings.fvec_get_data(outputVec);
 
-      // Copy Float64List data to aubio input vector
+      // Copy Float32List data to aubio input vector
       for (int i = 0; i < frameSize; i++) {
         inputData[i] = inputFrame[i];
       }
@@ -300,15 +300,14 @@ extension DigitalFilterExt on Pointer<aubio_filter_t> {
       // Process audio through the filter (out-of-place processing)
       Aubio.bindings.aubio_filter_do_outplace(cast(), inputVec, outputVec);
 
-      // Create output Float64List and copy processed data
-      final outputFrame = Float64List(frameSize);
+      // Create output Float32List and copy processed data
+      final outputFrame = Float32List(frameSize);
       for (int i = 0; i < frameSize; i++) {
         outputFrame[i] = outputData[i];
       }
 
       return outputFrame;
     } catch (e) {
-      debugPrint('Error processing audio frame: $e');
       return null;
     } finally {
       // Clean up aubio vectors
@@ -339,8 +338,8 @@ extension PhaseVocoderExt on Pointer<aubio_pvoc_t> {
   }
 
   // Phase vocoder analysis (time -> frequency domain)
-  Pointer<cvec_t> analyse(Float64List audioInput) {
-    final inputVec = Aubio.createFvecFromFloat64List(audioInput);
+  Pointer<cvec_t> analyse(Float32List audioInput) {
+    final inputVec = Aubio.createFvecFromFloat32List(audioInput);
     final fftGrain = Aubio.bindings.new_cvec(getWindowSize());
     Aubio.bindings.aubio_pvoc_do(cast(), inputVec, fftGrain);
     Aubio.bindings.del_fvec(inputVec);
@@ -353,13 +352,13 @@ extension PhaseVocoderExt on Pointer<aubio_pvoc_t> {
   }
 
   // Phase vocoder synthesis (frequency -> time domain)
-  Float64List synthesise(Pointer<cvec_t> fftGrain, int hopSize) {
+  Float32List synthesise(Pointer<cvec_t> fftGrain, int hopSize) {
     final outputVec = Aubio.bindings.new_fvec(hopSize);
 
     Aubio.bindings.aubio_pvoc_rdo(cast(), fftGrain, outputVec);
 
-    // Convert to Dart Float64List
-    final result = Float64List(hopSize);
+    // Convert to Dart Float32List
+    final result = Float32List(hopSize);
     for (int i = 0; i < hopSize; i++) {
       result[i] = Aubio.bindings.fvec_get_sample(outputVec, i);
     }
@@ -380,7 +379,7 @@ extension FilterbankExt on Pointer<aubio_filterbank_t> {
     Aubio.bindings.del_aubio_filterbank(cast());
   }
 
-  bool setTriangleBandsF32({required Float64List freqs, required int sampleRate}) {
+  bool setTriangleBandsF32({required Float32List freqs, required int sampleRate}) {
     final int n = freqs.length;
     final ptrFreqs = Aubio.bindings.new_fvec(n);
     if (ptrFreqs == ffi.nullptr) {
@@ -399,14 +398,14 @@ extension FilterbankExt on Pointer<aubio_filterbank_t> {
   }
 
   /// Process one FFT-magnitude frame (length fftSize/2+1) and returns
-  /// a Float64List of length [nBands] with mel-energies.
-  Float64List process(Pointer<cvec_t> freqDomain, int outLen) {
+  /// a Float32List of length [nBands] with mel-energies.
+  Float32List process(Pointer<cvec_t> freqDomain, int outLen) {
     final outVec = Aubio.bindings.new_fvec(outLen);
     // Run mel-filterbank
     Aubio.bindings.aubio_filterbank_do(cast(), freqDomain, outVec);
     // Read out mel-band energies
     final ptrOut = Aubio.bindings.fvec_get_data(outVec);
-    final out = Float64List(outLen);
+    final out = Float32List(outLen);
     for (var i = 0; i < outLen; i++) {
       out[i] = ptrOut[i];
     }
@@ -425,14 +424,14 @@ extension ResamplerExt on Pointer<aubio_resampler_t> {
     Aubio.bindings.del_aubio_resampler(cast());
   }
 
-  Float64List process(Float64List frame, int outLen) {
+  Float32List process(Float32List frame, int outLen) {
     final outVec = Aubio.bindings.new_fvec(outLen);
     final inVec = Aubio.bindings.new_fvec(frame.length);
 
     // Get data pointers from fvec_t structures
     final inData = Aubio.bindings.fvec_get_data(inVec);
     final outData = Aubio.bindings.fvec_get_data(outVec);
-    // Copy Float64List data to aubio input vector
+    // Copy Float32List data to aubio input vector
     for (int i = 0; i < frame.length; i++) {
       inData[i] = frame[i];
     }
@@ -440,8 +439,8 @@ extension ResamplerExt on Pointer<aubio_resampler_t> {
     // Process audio through the filter (out-of-place processing)
     Aubio.bindings.aubio_resampler_do(cast(), inVec, outVec);
 
-    // Create output Float64List and copy processed data
-    final outputFrame = Float64List(outLen);
+    // Create output Float32List and copy processed data
+    final outputFrame = Float32List(outLen);
     for (int i = 0; i < outLen; i++) {
       outputFrame[i] = outData[i];
     }

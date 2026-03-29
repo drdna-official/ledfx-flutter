@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import 'package:ledfx/dsp/fft.dart';
-import 'package:ledfx/dsp/types.dart';
+import 'fft.dart';
+import 'types.dart';
 
 class PhaseVocoder {
   final PVOCData pvoc;

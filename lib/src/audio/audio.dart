@@ -48,9 +48,9 @@ abstract class AudioInputSource {
   late ComplexVector _freqDomain;
   ComplexVector get freqDomain => _freqDomain;
 
-  late Float64List _rawAudioSample;
-  late Float64List _processedAudioSample;
-  Float64List audioSample({bool raw = false}) {
+  late Float32List _rawAudioSample;
+  late Float32List _processedAudioSample;
+  Float32List audioSample({bool raw = false}) {
     return raw ? _rawAudioSample : _processedAudioSample;
   }
 
@@ -89,7 +89,7 @@ abstract class AudioInputSource {
           debugPrint(message);
           break;
 
-        case AudioEvent(:final Float64List data):
+        case AudioEvent(:final Float32List data):
           // Convert and accumulate into frames
           // final frames = processAudioByteChunk(data);
           // for (final frame in frames) {
@@ -116,15 +116,15 @@ abstract class AudioInputSource {
       // default:
       //   preEmphasis.setBiquad(0, 0.85870, -1.71740, 0.85870, -1.71605, 0.71874);
     }
-    _rawAudioSample = Float64List.fromList(List.filled(MIC_RATE ~/ sampleRate, 0));
+    _rawAudioSample = Float32List.fromList(List.filled(MIC_RATE ~/ sampleRate, 0));
     phaseVocoder = PhaseVocoder(FFT_SIZE, MIC_RATE ~/ sampleRate);
     _inputVec = FloatVector.create(MIC_RATE ~/ sampleRate);
     _processedVec = FloatVector.create(MIC_RATE ~/ sampleRate);
 
     _freqDomain = ComplexVector.create(FFT_SIZE);
 
-    _rawAudioSample = Float64List(MIC_RATE ~/ sampleRate);
-    _processedAudioSample = Float64List(MIC_RATE ~/ sampleRate);
+    _rawAudioSample = Float32List(MIC_RATE ~/ sampleRate);
+    _processedAudioSample = Float32List(MIC_RATE ~/ sampleRate);
 
     final samplesToDelay = (0.001 * delay.inMilliseconds * sampleRate).toInt();
     if (samplesToDelay > 0) {
@@ -182,9 +182,9 @@ abstract class AudioInputSource {
   // }
 
   /// Convert PCM16 bytes → normalized float samples
-  Float64List pcm16ToFloat32(Uint8List bytes) {
+  Float32List pcm16ToFloat32(Uint8List bytes) {
     final bd = ByteData.sublistView(bytes);
-    final samples = Float64List(bytes.lengthInBytes ~/ 2);
+    final samples = Float32List(bytes.lengthInBytes ~/ 2);
     for (int i = 0; i < samples.length; i++) {
       samples[i] = bd.getInt16(i * 2, Endian.little) / 32768.0;
     }
@@ -192,14 +192,14 @@ abstract class AudioInputSource {
   }
 
   /// Process new PCM chunk into fixed frames
-  List<Float64List> processAudioByteChunk(Uint8List bytes) {
+  List<Float32List> processAudioByteChunk(Uint8List bytes) {
     final samples = pcm16ToFloat32(bytes);
     _audioEventBuffer.addAll(samples);
     final int frameSize = MIC_RATE ~/ sampleRate;
 
-    final frames = <Float64List>[];
+    final frames = <Float32List>[];
     while (_audioEventBuffer.length >= frameSize) {
-      frames.add(Float64List.fromList(_audioEventBuffer.sublist(0, frameSize)));
+      frames.add(Float32List.fromList(_audioEventBuffer.sublist(0, frameSize)));
       _audioEventBuffer.removeRange(0, frameSize);
     }
     return frames;
@@ -208,9 +208,9 @@ abstract class AudioInputSource {
   int inLen = 0;
   int outLen = 0;
 
-  void audioSampleCallback(Float64List inRaw) {
+  void audioSampleCallback(Float32List inRaw) {
     final int outLen = MIC_RATE ~/ sampleRate;
-    Float64List processed = Float64List(outLen);
+    Float32List processed = Float32List(outLen);
     if (inRaw.length != outLen) {
       if (resampler == null || resampler == nullptr) {
         resampler = Aubio.createResampler(ResamplerType.SRC_SINC_FASTEST, inRaw.length, outLen);

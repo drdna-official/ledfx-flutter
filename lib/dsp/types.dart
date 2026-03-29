@@ -1,15 +1,15 @@
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:ledfx/dsp/utils.dart';
+import 'utils.dart';
 
-extension type ComplexVector(Float64List _data) {
+extension type ComplexVector(Float32List _data) {
   // _data = [length, ...norm, ...phase]
   static const int headerSize = 1;
 
   static ComplexVector create(int length) {
     assert(length > 0, "length must be > 0");
-    return ComplexVector(Float64List(headerSize + (length ~/ 2 + 1) * 2))..setLength(length ~/ 2 + 1);
+    return ComplexVector(Float32List(headerSize + length * 2))..setLength(length);
   }
 
   void clear() {
@@ -26,26 +26,26 @@ extension type ComplexVector(Float64List _data) {
   void setPhase(int index, double val) => _data[headerSize + getLength() + index] = val;
 }
 
-extension type FloatVector(Float64List _data) {
+extension type FloatVector(Float32List _data) {
   // _data = [length, ...data]
   static const int headerSize = 1;
 
   static FloatVector create(int length) {
-    return FloatVector(Float64List(headerSize + length))..setLength(length);
+    return FloatVector(Float32List(headerSize + length))..setLength(length);
   }
 
-  static FloatVector fromArray(Float64List list) {
+  static FloatVector fromArray(Float32List list) {
     final FloatVector vec = FloatVector.create(list.length);
     vec._data.setRange(headerSize, headerSize + list.length, list);
     return vec;
   }
 
-  void copyFrom(Float64List list) {
+  void copyFrom(Float32List list) {
     assert(list.length == getLength(), "list length must match vector length");
     _data.setRange(headerSize, headerSize + list.length, list);
   }
 
-  void copyTo(Float64List list) {
+  void copyTo(Float32List list) {
     assert(list.length == getLength(), "list length must match vector length");
     list.setRange(0, getLength(), _data, headerSize);
   }
@@ -56,7 +56,7 @@ extension type FloatVector(Float64List _data) {
   double get(int index) => _data[headerSize + index];
   void set(int index, double val) => _data[headerSize + index] = val;
 
-  Float64List getData() => _data.sublist(headerSize);
+  Float32List getData() => _data.sublist(headerSize);
 
   void setPower(double power) {
     for (int i = headerSize; i < getLength(); i++) {
@@ -88,13 +88,13 @@ extension type FloatVector(Float64List _data) {
 
 enum WindowType { hanning, hanningz }
 
-extension type FilterBankData(Float64List _data) {
+extension type FilterBankData(Float32List _data) {
   // _data = [windowSize, noFilters, norm, power, filterCol, filterRow, ...filterCoeffs]
   // Offset math: Each filterbank has header of 5 values - (windowSize, noFilters, norm, power,filterCol, filterRow)
   static const int headerSize = 6;
 
   static FilterBankData create(int noFilters, int winSize) {
-    return FilterBankData(Float64List(noFilters * (winSize ~/ 2 + 1) + headerSize))
+    return FilterBankData(Float32List(noFilters * (winSize ~/ 2 + 1) + headerSize))
       ..setWinSize(winSize)
       ..setNFilters(noFilters)
       ..setNorm(1)
@@ -118,8 +118,8 @@ extension type FilterBankData(Float64List _data) {
   setFilterCol(int val) => _data[4] = val.toDouble();
   setFilterRow(int val) => _data[5] = val.toDouble();
 
-  double get(int filterIndex, int index) => _data[headerSize + filterIndex * getFilterRow() + index];
-  void set(int filterIndex, int index, double val) => _data[headerSize + filterIndex * getFilterRow() + index] = val;
+  double get(int filterIndex, int index) => _data[headerSize + filterIndex * getFilterCol() + index];
+  void set(int filterIndex, int index, double val) => _data[headerSize + filterIndex * getFilterCol() + index] = val;
 
   void clear() {
     for (int i = headerSize; i < _data.length; i++) {
@@ -127,7 +127,7 @@ extension type FilterBankData(Float64List _data) {
     }
   }
 
-  void matrixMultiply(FloatVector input, Float64List output) {
+  void matrixMultiply(FloatVector input, Float32List output) {
     for (int j = 0; j < getFilterCol(); j++) {
       for (int k = 0; k < getFilterRow(); k++) {
         output[k] += input.get(j) * get(k, j);
@@ -137,7 +137,6 @@ extension type FilterBankData(Float64List _data) {
 }
 
 extension type DigitalFilterData(Float64List _data) {
-  // avoid using Float32List
   // _data = [order, samplerate, ...a, ...b, ...x, ...y]
   static const int headerSize = 2;
 
@@ -166,7 +165,7 @@ extension type DigitalFilterData(Float64List _data) {
   setOrder(int val) => _data[0] = val.toDouble();
   setSamplerate(int val) => _data[1] = val.toDouble();
 
-  double getA(int index) => _data[headerSize + index];
+  getA(int index) => _data[headerSize + index];
   double getB(int index) => _data[headerSize + getOrder() + index];
   double getX(int index) => _data[headerSize + getOrder() * 2 + index];
   double getY(int index) => _data[headerSize + getOrder() * 3 + index];
@@ -194,9 +193,9 @@ class FFTData {
     required this.compSpec,
   });
 
-  final Float64List dIN;
-  final Float64List dOut;
-  final Float64List w;
+  final Float32List dIN;
+  final Float32List dOut;
+  final Float32List w;
   final Int32List ip;
   final FloatVector compSpec;
 
@@ -215,9 +214,9 @@ class FFTData {
     return FFTData._(
       winSize: winSize,
       fftSize: fftSize,
-      dIN: Float64List(winSize),
-      dOut: Float64List(winSize),
-      w: Float64List(fftSize),
+      dIN: Float32List(winSize),
+      dOut: Float32List(winSize),
+      w: Float32List(fftSize),
       ip: Int32List(fftSize),
       compSpec: FloatVector.create(winSize),
     );
@@ -324,7 +323,7 @@ class PVOCData {
     } else if (winSize == 2 * hopSize) {
       scale = 1.0;
     } else {
-      scale = 5.0;
+      scale = 0.5;
     }
 
     return PVOCData._(

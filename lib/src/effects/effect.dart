@@ -121,7 +121,7 @@ abstract class Effect {
   bool _isActive = false;
   bool get isActive => _isActive;
 
-  List<Float64List>? pixels;
+  List<Float32List>? pixels;
 
   int get pixelCount => pixels?.length ?? 0;
 
@@ -131,7 +131,7 @@ abstract class Effect {
   Effect({required this.ledfx, required this.config});
   void activate(Virtual virtual) {
     _virtual = virtual;
-    pixels = List.filled(virtual.effectivePixelCount, Float64List(3));
+    pixels = List.filled(virtual.effectivePixelCount, Float32List(3));
 
     if (this is EffectMixin) {
       (this as EffectMixin).onActivate(virtual.effectivePixelCount);
@@ -154,7 +154,7 @@ abstract class Effect {
   /// each Uint8List is rgb values of a pixel clamped between 0 and 255
   List<Uint8List>? getPixels() {
     if (virtual == null) return null;
-    List<Float64List> tmpPixels = List.filled(virtual!.effectivePixelCount, Float64List(3));
+    List<Float32List> tmpPixels = List.filled(virtual!.effectivePixelCount, Float32List(3));
     if (pixels != null) {
       try {
         tmpPixels.copyFromList(pixels!);
@@ -164,16 +164,16 @@ abstract class Effect {
       if (config.flip) tmpPixels = tmpPixels.reversed.toList();
 
       if (config.mirror) {
-        List<Float64List> reversedPixels = tmpPixels.reversed.toList();
-        List<Float64List> mirroredPixels = [...reversedPixels, ...tmpPixels];
+        List<Float32List> reversedPixels = tmpPixels.reversed.toList();
+        List<Float32List> mirroredPixels = [...reversedPixels, ...tmpPixels];
         int outputRows = mirroredPixels.length ~/ 2;
-        List<Float64List> finalPixels = List<Float64List>.generate(outputRows, (i) {
+        List<Float32List> finalPixels = List<Float32List>.generate(outputRows, (i) {
           // Get the two corresponding rows: one from the even index, one from the odd index
-          Float64List evenRow = mirroredPixels[2 * i]; // mirrored_pixels[::2] element
-          Float64List oddRow = mirroredPixels[2 * i + 1]; // mirrored_pixels[1::2] element
+          Float32List evenRow = mirroredPixels[2 * i]; // mirrored_pixels[::2] element
+          Float32List oddRow = mirroredPixels[2 * i + 1]; // mirrored_pixels[1::2] element
 
           // Create the result row for the maximums
-          Float64List maxRow = Float64List(3);
+          Float32List maxRow = Float32List(3);
 
           // Element-wise maximum (loop through columns)
           for (int j = 0; j < 3; j++) {
@@ -267,12 +267,12 @@ class Effects {
 }
 
 // A helper function to extract a column (R=0, G=1, B=2)
-List<double> getPixelValueColumn(List<Float64List> pixels, int colIndex) {
+List<double> getPixelValueColumn(List<Float32List> pixels, int colIndex) {
   return pixels.map((row) => row[colIndex]).toList();
 }
 
 // A helper function to update a column with convolved values
-void setPixelValueColumn(List<Float64List> pixels, int colIndex, List<double> newValues) {
+void setPixelValueColumn(List<Float32List> pixels, int colIndex, List<double> newValues) {
   for (int i = 0; i < pixels.length; i++) {
     pixels[i][colIndex] = newValues[i];
   }

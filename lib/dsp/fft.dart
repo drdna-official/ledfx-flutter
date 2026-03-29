@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'dart:typed_data';
 
-void ooura_rdft(int n, int isgn, Float64List a, Int32List ip, Float64List w) {
+void ooura_rdft(int n, int isgn, Float32List a, Int32List ip, Float32List w) {
   int nw, nc;
   double xi;
 
@@ -13,13 +13,13 @@ void ooura_rdft(int n, int isgn, Float64List a, Int32List ip, Float64List w) {
   nc = ip[1];
   if (n > (nc << 2)) {
     nc = n >> 2;
-    makect(nc, ip, Float64List.view(w.buffer, w.offsetInBytes + nw * 8));
+    makect(nc, ip, Float32List.view(w.buffer, w.offsetInBytes + nw * 4));
   }
   if (isgn >= 0) {
     if (n > 4) {
       bitrv2(n, Int32List.view(ip.buffer, ip.offsetInBytes + 8), a);
       cftfsub(n, a, w);
-      rftfsub(n, a, nc, Float64List.view(w.buffer, w.offsetInBytes + nw * 8));
+      rftfsub(n, a, nc, Float32List.view(w.buffer, w.offsetInBytes + nw * 4));
     } else if (n == 4) {
       cftfsub(n, a, w);
     }
@@ -30,7 +30,7 @@ void ooura_rdft(int n, int isgn, Float64List a, Int32List ip, Float64List w) {
     a[1] = 0.5 * (a[0] - a[1]);
     a[0] -= a[1];
     if (n > 4) {
-      rftbsub(n, a, nc, Float64List.view(w.buffer, w.offsetInBytes + nw * 8));
+      rftbsub(n, a, nc, Float32List.view(w.buffer, w.offsetInBytes + nw * 4));
       bitrv2(n, Int32List.view(ip.buffer, ip.offsetInBytes + 8), a);
       cftbsub(n, a, w);
     } else if (n == 4) {
@@ -39,7 +39,7 @@ void ooura_rdft(int n, int isgn, Float64List a, Int32List ip, Float64List w) {
   }
 }
 
-void makewt(int nw, Int32List ip, Float64List w) {
+void makewt(int nw, Int32List ip, Float32List w) {
   int j, nwh;
   double delta, x, y;
 
@@ -72,7 +72,7 @@ void makewt(int nw, Int32List ip, Float64List w) {
   }
 }
 
-void bitrv2(int n, Int32List ip, Float64List a) {
+void bitrv2(int n, Int32List ip, Float32List a) {
   int j, j1, k, k1, l, m, m2;
   double xr, xi, yr, yi;
 
@@ -170,7 +170,7 @@ void bitrv2(int n, Int32List ip, Float64List a) {
   }
 }
 
-void makect(int nc, Int32List ip, Float64List c) {
+void makect(int nc, Int32List ip, Float32List c) {
   int j, nch;
   double delta;
 
@@ -187,7 +187,7 @@ void makect(int nc, Int32List ip, Float64List c) {
   }
 }
 
-void cftfsub(int n, Float64List a, Float64List w) {
+void cftfsub(int n, Float32List a, Float32List w) {
   int j, j1, j2, j3, l;
   double x0r, x0i, x1r, x1i, x2r, x2i, x3r, x3i;
 
@@ -235,7 +235,7 @@ void cftfsub(int n, Float64List a, Float64List w) {
   }
 }
 
-void cft1st(int n, Float64List a, Float64List w) {
+void cft1st(int n, Float32List a, Float32List w) {
   int j, k1;
   double wn4r, wtmp, wk1r, wk1i, wk2r, wk2i, wk3r, wk3i, wk4r, wk4i, wk5r, wk5i, wk6r, wk6i, wk7r, wk7i;
   double x0r,
@@ -468,7 +468,7 @@ void cft1st(int n, Float64List a, Float64List w) {
   }
 }
 
-void cftmdl(int n, int l, Float64List a, Float64List w) {
+void cftmdl(int n, int l, Float32List a, Float32List w) {
   int j, j1, j2, j3, j4, j5, j6, j7, k, k1, m;
   double wn4r, wtmp, wk1r, wk1i, wk2r, wk2i, wk3r, wk3i, wk4r, wk4i, wk5r, wk5i, wk6r, wk6i, wk7r, wk7i;
   double x0r,
@@ -729,7 +729,7 @@ void cftmdl(int n, int l, Float64List a, Float64List w) {
   }
 }
 
-void cftbsub(int n, Float64List a, Float64List w) {
+void cftbsub(int n, Float32List a, Float32List w) {
   int j, j1, j2, j3, j4, j5, j6, j7, l;
   double wn4r,
       x0r,
@@ -864,7 +864,7 @@ void cftbsub(int n, Float64List a, Float64List w) {
   }
 }
 
-void rftfsub(int n, Float64List a, int nc, Float64List c) {
+void rftfsub(int n, Float32List a, int nc, Float32List c) {
   int j, k, kk, ks, m;
   double wkr, wki, xr, xi, yr, yi;
 
@@ -887,7 +887,7 @@ void rftfsub(int n, Float64List a, int nc, Float64List c) {
   }
 }
 
-void rftbsub(int n, Float64List a, int nc, Float64List c) {
+void rftbsub(int n, Float32List a, int nc, Float32List c) {
   int j, k, kk, ks, m;
   double wkr, wki, xr, xi, yr, yi;
 
