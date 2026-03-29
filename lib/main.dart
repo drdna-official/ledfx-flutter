@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:ledfx/background.dart' as bg;
 import 'package:ledfx/platform_interface/audio_bridge.dart';
 import 'package:ledfx/worker.dart';
@@ -31,6 +35,12 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _initFuture = LEDFxWorker.instance.init();
+    // TODO: REMOVE WHEN variable refresh rate is in flutter already
+    SchedulerBinding.instance.addPostFrameCallback((_) async {
+      if (Platform.isAndroid) {
+        await FlutterDisplayMode.setHighRefreshRate();
+      }
+    });
   }
 
   @override
