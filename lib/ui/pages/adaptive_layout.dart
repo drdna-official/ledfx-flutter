@@ -61,7 +61,7 @@ class AdaptiveNavigationLayout extends StatefulWidget {
 
 class _AdaptiveNavigationLayoutState extends State<AdaptiveNavigationLayout> {
   final LEDFxWorker ledfxWorker = LEDFxWorker.instance;
-  int _selectedIndex = 0;
+  int _selectedIndex = 1;
   bool playing = false;
 
   final _homeKey = GlobalKey(debugLabel: "home_page");
@@ -167,18 +167,20 @@ class _AdaptiveNavigationLayoutState extends State<AdaptiveNavigationLayout> {
             child: IgnorePointer(
               child: SizedBox(
                 height: 50,
-                child: ValueListenableBuilder(
-                  valueListenable: ledfxWorker.getDeviceRgbNotifier("dummyViz"),
-                  builder: (context, value, child) {
-                    return CustomPaint(
-                      painter: BarVisualizerPainter(
-                        values: value,
-                        ledCount: 300,
-                        valueType: BarVisualizerValueType.rgbBars,
-                        alpha: 0.33,
-                      ),
-                    );
-                  },
+                child: RepaintBoundary(
+                  child: ValueListenableBuilder(
+                    valueListenable: ledfxWorker.getDeviceRgbNotifier("dummyViz"),
+                    builder: (context, value, child) {
+                      return CustomPaint(
+                        painter: BarVisualizerPainter(
+                          values: value,
+                          ledCount: 300,
+                          valueType: BarVisualizerValueType.rgbBars,
+                          alpha: 0.5,
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),

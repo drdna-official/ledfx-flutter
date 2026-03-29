@@ -99,18 +99,32 @@ class _EffectPageState extends State<EffectPage> {
           return StatefulBuilder(
             builder: (context, setLocalState) {
               return Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  DropdownButton<EffectType>(
-                    value: activeEffect?.type,
-                    items: EffectType.values.where((v) => v != EffectType.unknown).map((effect) {
-                      return DropdownMenuItem<EffectType>(value: effect, child: Text(effect.fullName));
-                    }).toList(),
-                    onChanged: (effect) {
-                      if (effect != null) {
-                        activeEffect = EffectConfig(name: effect.fullName, type: effect, mirror: true, blur: 3.0);
-                        updateEffectConfig(activeEffect);
-                      }
-                    },
+                  RepaintBoundary(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<EffectType>(
+                          value: activeEffect?.type,
+                          isExpanded: false,
+                          items: EffectType.values.where((v) => v != EffectType.unknown).map((effect) {
+                            return DropdownMenuItem<EffectType>(value: effect, child: Text(effect.fullName));
+                          }).toList(),
+                          onChanged: (effect) {
+                            if (effect != null) {
+                              activeEffect = EffectConfig(name: effect.fullName, type: effect, mirror: true, blur: 3.0);
+                              updateEffectConfig(activeEffect);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
                   ),
                   if (activeEffect != null) ...[
                     SwitchListTile(
@@ -155,17 +169,26 @@ class _EffectPageState extends State<EffectPage> {
                     if (activeEffect!.type == EffectType.energy) ...[
                       ListTile(
                         title: Text("Mix Mode"),
-                        trailing: DropdownButton<MixMode>(
-                          value: activeEffect!.mixMode,
-                          items: MixMode.values.map((mode) {
-                            return DropdownMenuItem<MixMode>(value: mode, child: Text(mode.fullName));
-                          }).toList(),
-                          onChanged: (mode) {
-                            if (mode != null) {
-                              activeEffect!.mixMode = mode;
-                              updateEffectConfig(activeEffect);
-                            }
-                          },
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<MixMode>(
+                              value: activeEffect!.mixMode,
+                              items: MixMode.values.map((mode) {
+                                return DropdownMenuItem<MixMode>(value: mode, child: Text(mode.fullName));
+                              }).toList(),
+                              onChanged: (mode) {
+                                if (mode != null) {
+                                  activeEffect!.mixMode = mode;
+                                  updateEffectConfig(activeEffect);
+                                }
+                              },
+                            ),
+                          ),
                         ),
                       ),
                       ListView(

@@ -200,24 +200,32 @@ class _SegmentsPageState extends State<SegmentsPage> {
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 20),
-                          DropdownButtonFormField<String>(
-                            initialValue: selectedDeviceID,
-                            decoration: const InputDecoration(labelText: 'Device', border: OutlineInputBorder()),
-                            items: devices.keys.map((String deviceID) {
-                              return DropdownMenuItem<String>(value: deviceID, child: Text(devices[deviceID]!.name));
-                            }).toList(),
-                            onChanged: (String? newValue) {
-                              setDialogState(() {
-                                selectedDeviceID = newValue;
-                                if (newValue != null) {
-                                  double maxVal = (devices[newValue]!.pixelCount.toDouble() - 1);
-                                  currentRange = RangeValues(0, maxVal);
-                                  startController.text = "0";
-                                  endController.text = maxVal.toInt().toString();
-                                }
-                              });
-                            },
-                            validator: (value) => value == null ? 'Please select a device' : null,
+                          RepaintBoundary(
+                            child: DropdownButtonFormField<String>(
+                              initialValue: selectedDeviceID,
+                              decoration: InputDecoration(
+                                labelText: 'Device',
+                                filled: true,
+                                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              ),
+                              items: devices.keys.map((String deviceID) {
+                                return DropdownMenuItem<String>(value: deviceID, child: Text(devices[deviceID]!.name));
+                              }).toList(),
+                              onChanged: (String? newValue) {
+                                setDialogState(() {
+                                  selectedDeviceID = newValue;
+                                  if (newValue != null) {
+                                    double maxVal = (devices[newValue]!.pixelCount.toDouble() - 1);
+                                    currentRange = RangeValues(0, maxVal);
+                                    startController.text = "0";
+                                    endController.text = maxVal.toInt().toString();
+                                  }
+                                });
+                              },
+                              validator: (value) => value == null ? 'Please select a device' : null,
+                            ),
                           ),
                           if (selectedDeviceID != null) ...[
                             const SizedBox(height: 20),
