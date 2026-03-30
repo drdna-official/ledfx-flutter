@@ -163,29 +163,3 @@ List<double> convolveSame(List<double> array, List<double> kernel) {
   }
   return result;
 }
-
-// Since the array length changes during padding, we need a separate
-// convolveValid function to match the mode='valid' behavior.
-List<double> convolveValid(List<double> array, List<double> kernel) {
-  int arrayLen = array.length;
-  int kernelLen = kernel.length;
-
-  if (arrayLen < kernelLen) {
-    // Valid mode requires the array to be at least as long as the kernel.
-    return [];
-  }
-
-  int outputLen = arrayLen - kernelLen + 1;
-  List<double> output = List<double>.filled(outputLen, 0.0);
-
-  // Perform convolution in 'valid' mode
-  for (int i = 0; i < outputLen; i++) {
-    double sum = 0.0;
-    // The kernel is often reversed in convolution.
-    for (int j = 0; j < kernelLen; j++) {
-      sum += array[i + j] * kernel[kernelLen - 1 - j];
-    }
-    output[i] = sum;
-  }
-  return output;
-}

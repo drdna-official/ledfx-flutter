@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:typed_data';
 import 'package:ledfx/utils/polynominal.dart';
 
@@ -11,108 +10,11 @@ List<double> fastBlurArray(List<double> array, double sigma) {
   return convolveSame(array, kernel);
 }
 
-/// Applies a fast blur effect to the given pixel data (R, G, B channels).
-/// for values like -> [[r,g,b], [r,g,b], ...]
-List<List<double>> fastBlurPixels(List<List<double>> pixels, double sigma) {
-  if (pixels.isEmpty) {
-    throw ValueError("Cannot smooth an empty array");
-  }
-
-  // Assuming pixels is structured as [[R_data], [G_data], [B_data]]
-  // where each inner list is a channel (matching the Python pixels[:, 0] structure)
-  if (pixels.length < 3) {
-    throw ArgumentError("Input pixels must have at least 3 channels (R, G, B)");
-  }
-
-  final List<double> rChannel = pixels[0];
-  final List<double> gChannel = pixels[1];
-  final List<double> bChannel = pixels[2];
-
-  final int arrayLen = rChannel.length;
-  List<double> kernel = gaussianKernel1d(sigma, 0, arrayLen);
-
-  // pixels[:, 0] = np.convolve(pixels[:, 0], kernel, mode="same")
-  List<double> rBlurred = convolveSame(rChannel, kernel);
-
-  // pixels[:, 1] = np.convolve(pixels[:, 1], kernel, mode="same")
-  List<double> gBlurred = convolveSame(gChannel, kernel);
-
-  // pixels[:, 2] = np.convolve(pixels[:, 2], kernel, mode="same")
-  List<double> bBlurred = convolveSame(bChannel, kernel);
-
-  // Return the modified/newly created array structure
-  return [rBlurred, gBlurred, bBlurred];
-}
-
 class ValueError implements Exception {
   final String message;
   ValueError(this.message);
   @override
   String toString() => 'ValueError: $message';
-}
-
-/// Smooths a 1D array via a Gaussian filter using reflection padding
-/// and 'valid' convolution mode.
-List<double> smooth(List<double> x, double sigma) {
-  if (x.isEmpty) {
-    throw ValueError("Cannot smooth an empty array");
-  }
-
-  // 1. Determine Kernel and Radius
-  // kernel_radius = max(1, int(round(4.0 * sigma)))
-  int kernelRadius = max(1, (4.0 * sigma).round());
-
-  // filter_kernel = _gaussian_kernel1d(sigma, 0, kernel_radius)
-  // NOTE: The Python code uses kernel_radius for array_len here, but
-  // the definition of _gaussian_kernel1d uses it to limit the final
-  // kernel size (radius). The radius determines the length: 2*radius + 1.
-  List<double> filterKernel = gaussianKernel1d(sigma, 0, kernelRadius);
-  int kernelLen = filterKernel.length;
-
-  // 2. Determine Required Extended Length (len(x) + len(filter_kernel) - 1)
-  int extendedInputLen = x.length + kernelLen - 1;
-  List<double> xMirrored = List.from(x); // Start with a copy
-
-  // 3. Mirror Padding Loop (Equivalent to np.r_ and the while loop)
-  // This logic is complex because it mirrors iteratively to avoid crashing
-  // if len(x) is tiny compared to the required padding.
-  while (xMirrored.length < extendedInputLen) {
-    // mirror_len = min(len(x_mirrored), (extended_input_len - len(x_mirrored)) // 2)
-    int remainingPadding = extendedInputLen - xMirrored.length;
-    int mirrorLen = min(xMirrored.length, (remainingPadding / 2).floor());
-
-    // Build the new mirrored array: [Start Mirror] + [x_mirrored] + [End Mirror]
-    List<double> newMirrored = [];
-
-    // Start Mirror: x_mirrored[mirror_len - 1 :: -1] (Reversed slice from index mirror_len - 1 down to 0)
-    // The slice x_mirrored[:mirror_len] reversed
-    for (int i = mirrorLen - 1; i >= 0; i--) {
-      newMirrored.add(xMirrored[i]);
-    }
-
-    // Original array
-    newMirrored.addAll(xMirrored);
-
-    // End Mirror: x_mirrored[-1 : -(mirror_len + 1) : -1] (Reversed slice from last element back for mirror_len items)
-    // The slice x_mirrored[-mirror_len:] reversed
-    for (int i = xMirrored.length - 1; i >= xMirrored.length - mirrorLen; i--) {
-      newMirrored.add(xMirrored[i]);
-    }
-
-    xMirrored = newMirrored;
-  }
-
-  // 4. Convolve
-  // y = np.convolve(x_mirrored, filter_kernel, mode="valid")
-  List<double> y = convolveValid(xMirrored, filterKernel);
-
-  // 5. Assertion and Return
-  // assert len(y) == len(x)
-  if (y.length != x.length) {
-    throw StateError("Convolution output length ${y.length} does not match input length ${x.length}.");
-  }
-
-  return y;
 }
 
 /// Simple exponential smoothing filter with separate rise and decay factors.

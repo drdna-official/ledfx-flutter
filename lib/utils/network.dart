@@ -1,27 +1,5 @@
 import 'dart:io';
 
-// Future<String> resolveDestination(String address) async {
-//   try {
-//     final res = await DNSolve().lookup(address);
-
-//     if (res.answer?.records != null) {
-//       for (final record in res.answer!.records!) {
-//         print(record.toBind);
-//       }
-//     } else {
-//       final reverseRes = await DNSolve().reverseLookup(address);
-
-//       for (final record in reverseRes) {
-//         print(record.toBind);
-//       }
-//     }
-//   } catch (e) {
-//     print("error - ${e.toString()}");
-//   }
-
-//   return "";
-// }
-
 /// Attempts to resolve a given domain or IP address.
 ///
 /// It strips common URL prefixes (like 'http://', 'https://'), performs a DNS

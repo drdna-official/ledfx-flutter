@@ -239,30 +239,8 @@ void cftfsub(int n, Float32List a, Float32List w) {
 void cft1st(int n, Float32List a, Float32List w) {
   int j, k1;
   double wn4r, wtmp, wk1r, wk1i, wk2r, wk2i, wk3r, wk3i, wk4r, wk4i, wk5r, wk5i, wk6r, wk6i, wk7r, wk7i;
-  double x0r,
-      x0i,
-      x1r,
-      x1i,
-      x2r,
-      x2i,
-      x3r,
-      x3i,
-      y0r,
-      y0i,
-      y1r,
-      y1i,
-      y2r,
-      y2i,
-      y3r,
-      y3i,
-      y4r,
-      y4i,
-      y5r,
-      y5i,
-      y6r,
-      y6i,
-      y7r,
-      y7i;
+  double x0r, x0i, x1r, x1i, x2r, x2i, x3r, x3i, y0r, y0i, y1r, y1i, y2r, y2i, y3r, y3i;
+  double y4r, y4i, y5r, y5i, y6r, y6i, y7r, y7i;
 
   wn4r = w[2];
   x0r = a[0] + a[2];
@@ -472,30 +450,8 @@ void cft1st(int n, Float32List a, Float32List w) {
 void cftmdl(int n, int l, Float32List a, Float32List w) {
   int j, j1, j2, j3, j4, j5, j6, j7, k, k1, m;
   double wn4r, wtmp, wk1r, wk1i, wk2r, wk2i, wk3r, wk3i, wk4r, wk4i, wk5r, wk5i, wk6r, wk6i, wk7r, wk7i;
-  double x0r,
-      x0i,
-      x1r,
-      x1i,
-      x2r,
-      x2i,
-      x3r,
-      x3i,
-      y0r,
-      y0i,
-      y1r,
-      y1i,
-      y2r,
-      y2i,
-      y3r,
-      y3i,
-      y4r,
-      y4i,
-      y5r,
-      y5i,
-      y6r,
-      y6i,
-      y7r,
-      y7i;
+  double x0r, x0i, x1r, x1i, x2r, x2i, x3r, x3i;
+  double y0r, y0i, y1r, y1i, y2r, y2i, y3r, y3i, y4r, y4i, y5r, y5i, y6r, y6i, y7r, y7i;
 
   m = l << 3;
   wn4r = w[2];
@@ -732,31 +688,8 @@ void cftmdl(int n, int l, Float32List a, Float32List w) {
 
 void cftbsub(int n, Float32List a, Float32List w) {
   int j, j1, j2, j3, j4, j5, j6, j7, l;
-  double wn4r,
-      x0r,
-      x0i,
-      x1r,
-      x1i,
-      x2r,
-      x2i,
-      x3r,
-      x3i,
-      y0r,
-      y0i,
-      y1r,
-      y1i,
-      y2r,
-      y2i,
-      y3r,
-      y3i,
-      y4r,
-      y4i,
-      y5r,
-      y5i,
-      y6r,
-      y6i,
-      y7r,
-      y7i;
+  double wn4r, x0r, x0i, x1r, x1i, x2r, x2i, x3r, x3i;
+  double y0r, y0i, y1r, y1i, y2r, y2i, y3r, y3i, y4r, y4i, y5r, y5i, y6r, y6i, y7r, y7i;
 
   l = 2;
   if (n > 16) {

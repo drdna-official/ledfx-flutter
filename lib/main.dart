@@ -12,7 +12,13 @@ import 'package:ledfx/ui/pages/adaptive_layout.dart';
 @pragma('vm:entry-point')
 void backgroundAudioProcessing() => bg.backgroundAudioProcessing();
 
-void main() async {
+void main(List<String> args) async {
+  print("[Dart Main] Args: $args");
+  if (args.contains('--backgroundLinux')) {
+    print("[Dart Main] Detected --backgroundLinux, starting worker...");
+    backgroundAudioProcessing();
+    return;
+  }
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
