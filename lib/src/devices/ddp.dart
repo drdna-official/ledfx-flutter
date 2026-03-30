@@ -5,7 +5,8 @@ import 'dart:typed_data';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:ledfx/src/devices/udp.dart';
+
+import 'network.dart';
 
 class DDPDevice extends UDPDevice {
   static const int VER1 = 0x40; // DDP Version 1
@@ -24,9 +25,6 @@ class DDPDevice extends UDPDevice {
   void flush(List<Uint8List> pixelData) {
     frameCount += 1;
     try {
-      if (socket == null) {
-        throw Exception("Socket not initialised");
-      }
       if (destination == null || destination!.isEmpty) {
         throw Exception("No valid destination");
       }
@@ -35,31 +33,18 @@ class DDPDevice extends UDPDevice {
         builder.add(d);
       }
 
-      DDPDevice.sendOut(
-        sock: socket!,
-        dest: InternetAddress(destination!),
-        port: port,
-        byteData: builder.takeBytes(),
-        frameCount: frameCount,
-      );
+      DDPDevice.sendOut(dest: destination!, port: port, byteData: builder.takeBytes(), frameCount: frameCount);
     } catch (e) {
       debugPrint("DDP Device-Flush Error - ${e.toString()}");
     }
   }
 
   // Args:
-  //   sock (RawDatagramSocket): The socket to send the packet over.
-  //   dest (InternetAddress): The destination IP address.
+  //   dest (String): The destination IP address.
   //   port (int): The destination port number.
   //   data (List<Float64List>): The data to be sent in the packet.
   //   frame_count(int): The count of frames.
-  static void sendOut({
-    required RawDatagramSocket sock,
-    required InternetAddress dest,
-    required int port,
-    required Uint8List byteData,
-    required int frameCount,
-  }) {
+  static void sendOut({required String dest, required int port, required Uint8List byteData, required int frameCount}) {
     final int sequence = frameCount % 15 + 1;
 
     // 3. packets, remainder = divmod(len(byteData), DDPDevice.MAX_DATALEN)
@@ -89,27 +74,18 @@ class DDPDevice extends UDPDevice {
       // The 'last' flag is true if the current index 'i' is the last packet index (totalPackets - 1).
       final bool isLast = i == (totalPackets - 1);
 
-      DDPDevice.sendPacket(sock, dest, port, sequence, totalPackets, dataSlice, isLast);
+      DDPDevice.sendPacket(dest, port, sequence, totalPackets, dataSlice, isLast);
     }
   }
 
   // Args:
-  //     sock (RawDatagramSocket): The socket to send the packet over.
-  //     dest (InternetAddress): The destination IP address.
+  //     dest (String): The destination IP address.
   //     port (int): The destination port number.
   //     sequence (int): The sequence number of the packet.
   //     packetCount (int): The total number of packets.
   //     data (Uint8List): The data to be sent in the packet.
   //     last (bool): Indicates if this is the last packet in the sequence.
-  static void sendPacket(
-    RawDatagramSocket sock,
-    InternetAddress dest,
-    int port,
-    int sequence,
-    int packetCount,
-    Uint8List data,
-    bool last,
-  ) {
+  static void sendPacket(String dest, int port, int sequence, int packetCount, Uint8List data, bool last) {
     final int bytesLength = data.length;
 
     // The DDP header size: !BBBBLH means 1+1+1+1+4+2 = 10 bytes
@@ -151,6 +127,6 @@ class DDPDevice extends UDPDevice {
       ..setAll(headerSize, data); // Copy data
 
     // --- Send the packet ---
-    sock.send(udpData.toList(), dest, port);
+    UDPSender().sendPacket(dest, port, udpData);
   }
 }

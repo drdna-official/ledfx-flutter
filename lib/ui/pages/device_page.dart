@@ -111,15 +111,17 @@ class _DevicePageState extends State<DevicePage> {
                             borderRadius: BorderRadius.circular(4),
                             child: SizedBox(
                               height: 10,
-                              child: ValueListenableBuilder<List<int>>(
-                                valueListenable: ledfxWorker.getDeviceRgbNotifier(deviceID),
-                                builder: (BuildContext context, List<int> data, Widget? child) {
-                                  if (data.isEmpty) return const SizedBox.shrink();
-                                  return CustomPaint(
-                                    painter: StripVisualizerPainter(values: data, ledCount: 300),
-                                    size: const Size(double.infinity, 50),
-                                  );
-                                },
+                              child: RepaintBoundary(
+                                child: ValueListenableBuilder<List<int>>(
+                                  valueListenable: ledfxWorker.getDeviceRgbNotifier(deviceID),
+                                  builder: (BuildContext context, List<int> data, Widget? child) {
+                                    if (data.isEmpty) return const SizedBox.shrink();
+                                    return CustomPaint(
+                                      painter: StripVisualizerPainter(values: data, ledCount: 300),
+                                      size: const Size(double.infinity, 50),
+                                    );
+                                  },
+                                ),
                               ),
                             ),
                           ),
@@ -198,16 +200,24 @@ class _DevicePageState extends State<DevicePage> {
                       const SizedBox(height: 20),
 
                       // Device Type
-                      DropdownButtonFormField<String>(
-                        initialValue: _type.text,
-                        decoration: const InputDecoration(labelText: 'DeviceType', border: OutlineInputBorder()),
-                        items: const [
-                          DropdownMenuItem(value: "wled", child: Text("WLED")),
-                          DropdownMenuItem(value: "dummy", child: Text("Dummy")),
-                        ],
-                        onChanged: (value) {
-                          _type.text = value!;
-                        },
+                      RepaintBoundary(
+                        child: DropdownButtonFormField<String>(
+                          initialValue: _type.text,
+                          decoration: InputDecoration(
+                            labelText: 'DeviceType',
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: "wled", child: Text("WLED")),
+                            DropdownMenuItem(value: "dummy", child: Text("Dummy")),
+                          ],
+                          onChanged: (value) {
+                            _type.text = value!;
+                          },
+                        ),
                       ),
                       const SizedBox(height: 15),
                       // Address Field

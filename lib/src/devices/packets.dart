@@ -11,8 +11,19 @@ class Packets {
     // 3 + n*3 	Green Value
     // 4 + n*3 	Blue Value
 
-    List<int> header = [2, timeout ?? 1];
-    return [...header, ...data.expand((e) => e)];
+    final int totalSize = 2 + (data.length * 3);
+    final Uint8List buffer = Uint8List(totalSize);
+    buffer[0] = 2;
+    buffer[1] = timeout ?? 1;
+    
+    int offset = 2;
+    for (int i = 0; i < data.length; i++) {
+        buffer[offset++] = data[i][0];
+        buffer[offset++] = data[i][1];
+        buffer[offset++] = data[i][2];
+    }
+    
+    return buffer;
   }
 
   static List<int> buidDNRGBpacket(List<Uint8List> data, int ledStartIndex, [int? timeout]) {
@@ -24,28 +35,23 @@ class Packets {
     // 4 + n*3 	Red Value
     // 5 + n*3 	Green Value
     // 6 + n*3 	Blue Value
-    // Use a ByteData buffer for easier manipulation of multi-byte integers.
-    final headerBuffer = ByteData(4);
+    
+    final int totalSize = 4 + (data.length * 3);
+    final Uint8List packetBuffer = Uint8List(totalSize);
 
-    // Header: [4, timeout, start index high byte, start index low byte]
-    headerBuffer.setUint8(0, 4);
-    headerBuffer.setUint8(1, timeout ?? 1);
-    headerBuffer.setUint8(2, (ledStartIndex >> 8) & 0xFF);
-    headerBuffer.setUint8(3, ledStartIndex & 0xFF);
+    packetBuffer[0] = 4;
+    packetBuffer[1] = timeout ?? 1;
+    packetBuffer[2] = (ledStartIndex >> 8) & 0xFF;
+    packetBuffer[3] = ledStartIndex & 0xFF;
 
-    final List<int> flattened = data.expand((e) => e).toList();
+    int offset = 4;
+    for (int i = 0; i < data.length; i++) {
+        packetBuffer[offset++] = data[i][0];
+        packetBuffer[offset++] = data[i][1];
+        packetBuffer[offset++] = data[i][2];
+    }
 
-    // Calculate the total packet size: 4 bytes for the header + 3 bytes per LED.
-    final totalSize = 4 + (flattened.length * 3);
-    final packetBuffer = Uint8List(totalSize);
-
-    // Copy header bytes to the final packet buffer.
-    packetBuffer.setAll(0, headerBuffer.buffer.asUint8List());
-
-    // Flatten the RGB data and copy it to the packet buffer.
-    packetBuffer.setAll(4, flattened);
-
-    return packetBuffer.toList();
+    return packetBuffer;
   }
 
   // TODO: Implement

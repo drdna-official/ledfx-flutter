@@ -19,6 +19,7 @@ dependencies:
   nanoid: ^1.0.0
   shared_preferences: ^2.5.4
   flex_color_picker: ^3.8.0
+  flutter_displaymode: ^0.7.0
 
 dev_dependencies:
   flutter_test:

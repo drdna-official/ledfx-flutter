@@ -8,6 +8,8 @@ import 'package:ledfx/src/virtual.dart';
 import 'package:ledfx/utils/utils.dart';
 import 'package:nanoid/nanoid.dart';
 
+import 'network.dart';
+
 class DeviceConfig {
   String? address;
   String name;
@@ -252,6 +254,7 @@ abstract class Device {
 
   bool _online = true;
   bool get isOnline => _online;
+  set online(bool online) => _online = online;
 
   List<Uint8List>? _devicePixels;
 
@@ -376,16 +379,6 @@ abstract class Device {
           }
         }
       }
-
-      // final ndArr = NdArray.fromList(pixels);
-      // if (ndArr.shape.isNotEmpty && ndArr.shape[0] != 0) {
-
-      //   if (ndArr.shape.first == 3 ||
-      //       (_pixels != null &&
-      //           NdArray.fromList(_pixels!).shape == ndArr.shape)) {
-      //     _pixels = pixels;
-      //   }
-      // }
     }
 
     if (priorityVirtual != null) {
@@ -493,61 +486,6 @@ abstract class Device {
       }
 
       if (active) v.activate();
-    }
-  }
-}
-
-abstract class NetworkedDevice extends Device implements AsyncInitDevice {
-  NetworkedDevice({
-    super.refreshRate,
-    required String ipAddr,
-    required super.id,
-    required super.ledfx,
-    required super.config,
-  }) {
-    config.address = ipAddr;
-  }
-
-  String get ipAddr => config.address!;
-
-  String? _destination;
-  String? get destination => () {
-    if (_destination == null) {
-      resolveAddress();
-      return null;
-    } else {
-      return _destination!;
-    }
-  }();
-  set destination(String? dest) => _destination = dest;
-
-  @override
-  Future<void> initialize() async {
-    _destination = null;
-    await resolveAddress();
-  }
-
-  @override
-  void activate() {
-    if (_destination == null) {
-      debugPrint("Error: Not Online");
-      resolveAddress().then((_) {
-        activate();
-      });
-    } else {
-      _online = true;
-      super.activate();
-    }
-  }
-
-  Future<void> resolveAddress([VoidCallback? callback]) async {
-    try {
-      _destination = await resolveDestination(ipAddr);
-      _online = true;
-      if (callback != null) callback();
-    } catch (e) {
-      _online = false;
-      debugPrint(e.toString());
     }
   }
 }

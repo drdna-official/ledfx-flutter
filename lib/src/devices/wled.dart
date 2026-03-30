@@ -2,10 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:ledfx/src/devices/ddp.dart';
-import 'package:ledfx/src/devices/device.dart';
 import 'package:http/http.dart' as http;
 import 'package:ledfx/src/devices/udp.dart';
 import 'package:nanoid/nanoid.dart';
+
+import 'network.dart';
 
 enum WLEDSyncMode { udp, ddp, e131 }
 

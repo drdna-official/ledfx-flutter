@@ -1,38 +1,9 @@
 import 'dart:developer' show log;
-import 'dart:io';
-import 'dart:math' show min;
+import 'dart:math' hide log;
 import 'dart:typed_data';
 
-import 'package:ledfx/src/devices/device.dart';
-import 'package:ledfx/src/devices/packets.dart';
-
-abstract class UDPDevice extends NetworkedDevice implements AsyncInitDevice {
-  UDPDevice({
-    required super.ipAddr,
-    super.refreshRate,
-    required this.port,
-    required super.id,
-    required super.ledfx,
-    required super.config,
-  });
-
-  int port;
-
-  RawDatagramSocket? _socket;
-  RawDatagramSocket? get socket => _socket;
-
-  @override
-  Future<void> activate() async {
-    _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-    super.activate();
-  }
-
-  @override
-  void deactivate() {
-    super.deactivate();
-    _socket = null;
-  }
-}
+import 'network.dart';
+import 'packets.dart';
 
 class RealtimeUDPDevice extends UDPDevice {
   RealtimeUDPDevice({
@@ -114,21 +85,20 @@ class RealtimeUDPDevice extends UDPDevice {
 
   void transmitPacket(List<int> packet, bool frameIsSame) {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final uint8Packet = packet is Uint8List ? packet : Uint8List.fromList(packet);
+
     if (frameIsSame) {
       final halfTimeout = ((((timeout * refreshRate) - 1) ~/ 2) / refreshRate) * 1000;
 
       if (timestamp > lastFrameSendTime + halfTimeout) {
         if (destination != null) {
-          // _socket!.send(packet, InternetAddress("192.168.0.150"), 12345);
-          _socket!.send(packet, InternetAddress(destination!), port);
+          UDPSender().sendPacket(destination!, port, uint8Packet);
           lastFrameSendTime = timestamp;
         }
       }
     } else {
       if (destination != null) {
-        // _socket!.send(packet, InternetAddress("192.168.0.150"), 12345);
-
-        _socket!.send(packet, InternetAddress(destination!), port);
+        UDPSender().sendPacket(destination!, port, uint8Packet);
         lastFrameSendTime = timestamp;
       }
     }
