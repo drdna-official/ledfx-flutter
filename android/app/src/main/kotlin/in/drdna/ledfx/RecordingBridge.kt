@@ -21,8 +21,16 @@ object RecordingBridge {
         )
     }
 
+    fun removeSink(isBackground: Boolean) {
+        eventSinks.remove(isBackground)
+    }
+
     fun removeUiSink() {
-        eventSinks.remove(false)
+        removeSink(false)
+    }
+
+    fun isUiAttached(): Boolean {
+        return eventSinks.containsKey(false)
     }
 
     // ===== Helpers to send events back to Flutter =====
