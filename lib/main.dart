@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -10,19 +12,30 @@ import 'package:ledfx/worker.dart';
 import 'package:ledfx/ui/pages/adaptive_layout.dart';
 
 @pragma('vm:entry-point')
-void backgroundAudioProcessing() => bg.backgroundAudioProcessing();
+void backgroundAudioProcessing({RootIsolateToken? token}) => bg.backgroundAudioProcessing(token: token);
 
 void main(List<String> args) async {
   print("[Dart Main] Args: $args");
-  if (args.contains('--backgroundLinux')) {
-    print("[Dart Main] Detected --backgroundLinux, starting worker...");
-    backgroundAudioProcessing();
-    return;
-  }
   WidgetsFlutterBinding.ensureInitialized();
+  AudioBridge.instance.registerNativeListener();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-  await AudioBridge.instance.setupBackgroundExecution(backgroundAudioProcessing);
+  if (Platform.isWindows || Platform.isLinux) {
+    print("[Dart Main] Spawning background isolate for ${Platform.operatingSystem}");
+    final rootToken = RootIsolateToken.instance!;
+    Isolate.spawn((token) => backgroundAudioProcessing(token: token), rootToken);
+
+    // Forward events to background isolate
+    AudioBridge.instance.events.listen((event) {
+      final bgPort = IsolateNameServer.lookupPortByName("ledfx_bg_port");
+      if (bgPort != null) {
+        bgPort.send({"cmd": "bridge_event", "payload": event});
+      }
+    });
+  } else {
+    // Android still uses native foreground service / background engine for now
+    await AudioBridge.instance.setupBackgroundExecution(backgroundAudioProcessing);
+  }
 
   runApp(const MyApp());
 }

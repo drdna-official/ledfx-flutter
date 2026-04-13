@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:ui';
@@ -82,24 +83,36 @@ class ErrorEvent extends RecordingEvent {
 
 class AudioBridge {
   AudioBridge._() {
-    _event.receiveBroadcastStream().listen((event) {
-      if (event is Map) {
-        switch (event["type"]) {
-          case "audio":
-            _controller.add(AudioEvent(event["data"]));
-            break;
-          case "state":
-            _controller.add(StateEvent(event["value"]));
-            break;
-          case "error":
-            _controller.add(ErrorEvent(event["message"]));
-            break;
-          case "devicesInfo":
-            _controller.add(DevicesInfoEvent(List.from(event["devices"])));
-        }
-      }
-    });
+    // Subscription is deferred to registerNativeListener() 
+    // to avoid unhandled FrameWork exceptions on Windows/Linux background isolates.
   }
+
+  void registerNativeListener() {
+    _event.receiveBroadcastStream().listen(addEventToController);
+  }
+
+  void addEventToController(dynamic event) {
+    if (event is RecordingEvent) {
+      // Accept pre-parsed events forwarded from the Root Isolate
+      _controller.add(event);
+    } else if (event is Map) {
+      // Parse raw native events
+      switch (event["type"]) {
+        case "audio":
+          _controller.add(AudioEvent(event["data"]));
+          break;
+        case "state":
+          _controller.add(StateEvent(event["value"]));
+          break;
+        case "error":
+          _controller.add(ErrorEvent(event["message"]));
+          break;
+        case "devicesInfo":
+          _controller.add(DevicesInfoEvent(List.from(event["devices"])));
+      }
+    }
+  }
+
   static final AudioBridge instance = AudioBridge._();
 
   final _method = MethodChannel("system_audio_recorder/methods");
@@ -120,8 +133,12 @@ class AudioBridge {
     }
   }
 
-  // Convenience methods for native calls
+  // Convenience methods for native calls - Android
   Future<bool> setupBackgroundExecution(Function callback) async {
+    // early check
+    if (Platform.isWindows || Platform.isLinux) {
+      return true;
+    }
     final callbackHandle = PluginUtilities.getCallbackHandle(callback as Function);
     if (callbackHandle == null) return false;
     try {

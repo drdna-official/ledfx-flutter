@@ -6,6 +6,7 @@
 #include <map>
 #include <mutex>
 #include <vector>
+#include <string>
 
 #include "audio_recorder.h"
 
@@ -21,13 +22,11 @@ private:
     static FlMethodResponse* handle_request_device_list(RecordingBridge* self);
     static FlMethodResponse* handle_start_recording(RecordingBridge* self, FlValue* args);
     static FlMethodResponse* handle_stop_recording(RecordingBridge* self);
-    static FlMethodResponse* handle_setup_background_execution(RecordingBridge* self, FlValue* args);
     static FlMethodResponse* handle_get_recording_state(RecordingBridge* self);
 
     static FlMethodErrorResponse* handle_event_listen(FlEventChannel* channel, FlValue* args, gpointer user_data);
     static FlMethodErrorResponse* handle_event_cancel(FlEventChannel* channel, FlValue* args, gpointer user_data);
 
-    void StartBackgroundEngine(int64_t callback_handle);
 
     // Callbacks from AudioRecorder
     void OnAudioData(const std::vector<float>& data);
@@ -49,8 +48,6 @@ private:
     FlMethodChannel* method_channel_ = nullptr;
     FlEventChannel* event_channel_ = nullptr;
     std::unique_ptr<AudioRecorder> recorder_;
-    FlView* background_view_ = nullptr;
-    FlEngine* background_engine_ = nullptr;
 
     // Event sinks for broadcasting
     std::map<FlBinaryMessenger*, FlEventChannel*> active_sinks_;

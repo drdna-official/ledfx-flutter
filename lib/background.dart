@@ -2,17 +2,25 @@ import 'dart:isolate';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:ledfx/src/core.dart';
 import 'package:ledfx/platform_interface/audio_bridge.dart';
 import 'package:ledfx/src/storage/storage.dart';
 import 'package:ledfx/src/virtual.dart';
 
 @pragma('vm:entry-point')
-void backgroundAudioProcessing() async {
+void backgroundAudioProcessing({RootIsolateToken? token}) async {
+  if (token != null) {
+    BackgroundIsolateBinaryMessenger.ensureInitialized(token);
+  } else {
+    // Android background engines have their own binary messenger and need to register manually
+    WidgetsFlutterBinding.ensureInitialized();
+    AudioBridge.instance.registerNativeListener();
+  }
   debugPrint("=================================================");
-  debugPrint("BACKGROUND ISOLATE STARTING (Windows/Android)");
+  debugPrint("BACKGROUND ISOLATE STARTING (Windows/Android/Linux)");
   debugPrint("=================================================");
-  WidgetsFlutterBinding.ensureInitialized();
+
   DartPluginRegistrant.ensureInitialized();
 
   // Setup receiving port for UI commands IMMEDIATELY so the UI doesn't hang
@@ -40,7 +48,6 @@ void backgroundAudioProcessing() async {
     bgReceivePort.listen((message) async {
       if (message is Map<String, dynamic>) {
         final cmd = message["cmd"];
-        debugPrint("Background Worker: Received command: $cmd");
         switch (cmd) {
           case "request_state":
             _sendStateToUI(ledfx);
@@ -116,6 +123,9 @@ void backgroundAudioProcessing() async {
             break;
           case "get_audio_devices":
             AudioBridge.instance.getDevices();
+            break;
+          case "bridge_event":
+            AudioBridge.instance.addEventToController(message["payload"]);
             break;
           case "start_audio_capture":
             break;
