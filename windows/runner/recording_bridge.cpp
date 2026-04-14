@@ -134,7 +134,6 @@ void RecordingBridge::HandleMethodCall(const flutter::MethodCall<flutter::Encoda
 }
 
 
-
 void RecordingBridge::OnAudioData(const std::vector<float>& data) {
     PostAudioData(data);
 }
