@@ -29,7 +29,7 @@ void main(List<String> args) async {
     AudioBridge.instance.events.listen((event) {
       final bgPort = IsolateNameServer.lookupPortByName("ledfx_bg_port");
       if (bgPort != null) {
-        bgPort.send({"cmd": "bridge_event", "payload": event});
+        bgPort.send({"cmd": "bridge_event", "payload": event.raw});
       }
     });
   } else {
@@ -99,11 +99,9 @@ class _MyAppState extends State<MyApp> {
               builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Scaffold(
-                    appBar: AppBar(
-                      title: Text('LEDFx'),
-                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                    ),
-
+                    appBar: (!Platform.isAndroid)
+                        ? null
+                        : AppBar(title: Text('LEDFx'), backgroundColor: Theme.of(context).colorScheme.primaryContainer),
                     body: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -113,7 +111,9 @@ class _MyAppState extends State<MyApp> {
                   );
                 } else if (snapshot.hasError) {
                   return Scaffold(
-                    appBar: AppBar(title: Text('LEDFx')),
+                    appBar: (!Platform.isAndroid)
+                        ? null
+                        : AppBar(title: Text('LEDFx'), backgroundColor: Theme.of(context).colorScheme.primaryContainer),
                     body: Center(
                       child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
                     ),
@@ -123,10 +123,12 @@ class _MyAppState extends State<MyApp> {
                     return AdaptiveNavigationLayout();
                   } else {
                     return Scaffold(
-                      appBar: AppBar(
-                        title: Text('LEDFx'),
-                        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                      ),
+                      appBar: (!Platform.isAndroid)
+                          ? null
+                          : AppBar(
+                              title: Text('LEDFx'),
+                              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                            ),
                       body: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
