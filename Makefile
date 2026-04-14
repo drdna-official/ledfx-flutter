@@ -46,9 +46,45 @@ android ios linux windows: check-fastforge
 			echo "  Packaging System: [$(SELECTED_JOBS)]" && \
 			$(if $(OUT_PATH),echo "  Output Directory: [$(OUT_PATH)]" &&) \
 			echo "--------------------------------------------------------" && \
-			fastforge release --skip-clean --name production $(OUT_FLAG) --jobs $(subst $(space),$(comma),$(SELECTED_JOBS)), \
-			echo "Usage: make <platform1> <platform2> ... [-o output_path]" \
-		) \
+			fastforge release --skip-clean --name production $(OUT_FLAG) --jobs $(subst $(space),$(comma),$(SELECTED_JOBS)) && \
+			$(if $(filter android,$(SELECTED_JOBS)), \
+				echo "--------------------------------------------------------" && \
+				echo "  Post-processing Android: Collecting split APKs..." && \
+				$(if $(filter Windows_NT,$(OS)), \
+					powershell -NoProfile -Command " \
+						$$v = (Get-Content pubspec.yaml | Select-String 'version:').ToString().Split(':')[1].Trim(); \
+						$$d = '$(OUT_PATH)'; if (!$$d) { $$d = 'dist' }; \
+						$$targetDir = \"$$d/$$v\"; \
+						if (Test-Path 'build/app/outputs/flutter-apk/app-arm64-v8a-release.apk') { \
+							if (!(Test-Path \"$$targetDir\")) { New-Item -ItemType Directory -Path \"$$targetDir\" -Force | Out-Null }; \
+							Copy-Item 'build/app/outputs/flutter-apk/app-arm64-v8a-release.apk' -Destination \"$$targetDir/ledfx-$$v-android-arm64.apk\" -Force; \
+							Write-Host '  + Collected: ledfx-$$v-android-arm64.apk'; \
+						}; \
+						if (Test-Path 'build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk') { \
+							if (!(Test-Path \"$$targetDir\")) { New-Item -ItemType Directory -Path \"$$targetDir\" -Force | Out-Null }; \
+							Copy-Item 'build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk' -Destination \"$$targetDir/ledfx-$$v-android-armv7.apk\" -Force; \
+							Write-Host '  + Collected: ledfx-$$v-android-armv7.apk'; \
+						}; \
+						if (Test-Path \"$$targetDir/ledfx-$$v-android.apk\") { \
+							Remove-Item \"$$targetDir/ledfx-$$v-android.apk\" -ErrorAction SilentlyContinue; \
+						}; \
+					", \
+					VERSION=$$(grep "^version:" pubspec.yaml | cut -d " " -f 2) && \
+					OUT=$$(if [ -n "$(OUT_PATH)" ]; then echo "$(OUT_PATH)"; else echo "dist"; fi) && \
+					TDIR="$$OUT/$$VERSION" && \
+					if [ -f "build/app/outputs/flutter-apk/app-arm64-v8a-release.apk" ]; then \
+						cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk $$TDIR/ledfx-$$VERSION-android-arm64.apk && \
+						echo "  + Collected: ledfx-$$VERSION-android-arm64.apk"; \
+					fi && \
+					if [ -f "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" ]; then \
+						cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk $$TDIR/ledfx-$$VERSION-android-armv7.apk && \
+						echo "  + Collected: ledfx-$$VERSION-android-armv7.apk"; \
+					fi && \
+					rm -f $$TDIR/ledfx-$$VERSION-android.apk \
+				) \
+			) \
+		), \
+		echo "Built $@ already..." \
 	)
 
 # Dummy targets to support flags and paths as positional arguments
