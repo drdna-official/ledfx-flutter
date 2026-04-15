@@ -2,18 +2,20 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:ui';
 
 /// Sealed union of all events from the native bridge
 sealed class RecordingEvent {
-  const RecordingEvent();
+  final dynamic raw;
+  const RecordingEvent({required this.raw});
 }
 
 class AudioEvent extends RecordingEvent {
   final Float32List data;
-  AudioEvent(List<Object?> adata)
+  AudioEvent(List<Object?> adata, {required super.raw})
     : data = Float32List.fromList(
         adata.map((e) {
           return (e == null) ? 0.0 : e as double;
@@ -23,7 +25,7 @@ class AudioEvent extends RecordingEvent {
 
 class DevicesInfoEvent extends RecordingEvent {
   final List<AudioDevice> audioDevices;
-  DevicesInfoEvent(List data)
+  DevicesInfoEvent(List data, {required super.raw})
     : audioDevices = (data as List? ?? [])
           .map((device) => AudioDevice.fromMap(device.cast<String, dynamic>()))
           .toList();
@@ -72,34 +74,49 @@ enum AudioCaptureType { microphone, systemAudio }
 class StateEvent extends RecordingEvent {
   // value = "recording_started", "recording_stopped"
   final String value;
-  const StateEvent(this.value);
+  const StateEvent(this.value, {required super.raw});
 }
 
 class ErrorEvent extends RecordingEvent {
   final String message;
-  const ErrorEvent(this.message);
+  const ErrorEvent(this.message, {required super.raw});
 }
 
 class AudioBridge {
   AudioBridge._() {
-    _event.receiveBroadcastStream().listen((event) {
-      if (event is Map) {
-        switch (event["type"]) {
-          case "audio":
-            _controller.add(AudioEvent(event["data"]));
-            break;
-          case "state":
-            _controller.add(StateEvent(event["value"]));
-            break;
-          case "error":
-            _controller.add(ErrorEvent(event["message"]));
-            break;
-          case "devicesInfo":
-            _controller.add(DevicesInfoEvent(List.from(event["devices"])));
-        }
-      }
-    });
+    // Subscription is deferred to registerNativeListener()
+    // to avoid unhandled FrameWork exceptions on Windows/Linux background isolates.
   }
+
+  bool _isRegistered = false;
+  void registerNativeListener() {
+    if (_isRegistered) return;
+    _isRegistered = true;
+    _event.receiveBroadcastStream().listen(addEventToController);
+  }
+
+  void addEventToController(dynamic event) {
+    if (event is RecordingEvent) {
+      // Accept pre-parsed events forwarded from the Root Isolate
+      _controller.add(event);
+    } else if (event is Map) {
+      // Parse raw native events
+      switch (event["type"]) {
+        case "audio":
+          _controller.add(AudioEvent(event["data"], raw: event));
+          break;
+        case "state":
+          _controller.add(StateEvent(event["value"], raw: event));
+          break;
+        case "error":
+          _controller.add(ErrorEvent(event["message"], raw: event));
+          break;
+        case "devicesInfo":
+          _controller.add(DevicesInfoEvent(List.from(event["devices"]), raw: event));
+      }
+    }
+  }
+
   static final AudioBridge instance = AudioBridge._();
 
   final _method = MethodChannel("system_audio_recorder/methods");
@@ -120,8 +137,12 @@ class AudioBridge {
     }
   }
 
-  // Convenience methods for native calls
+  // Convenience methods for native calls - Android
   Future<bool> setupBackgroundExecution(Function callback) async {
+    // early check
+    if (Platform.isWindows || Platform.isLinux) {
+      return true;
+    }
     final callbackHandle = PluginUtilities.getCallbackHandle(callback as Function);
     if (callbackHandle == null) return false;
     try {
@@ -136,26 +157,25 @@ class AudioBridge {
 
   Future<bool?> getDevices() async {
     if (Platform.isAndroid) {
-      _controller.add(
-        DevicesInfoEvent([
-          {
-            "id": "1",
-            "name": "System Internal",
-            "description": "System Internal",
-            "isActive": true,
-            "samplerate": 48000,
-            "type": "output",
-          },
-          {
-            "id": "2",
-            "name": "Microphone",
-            "description": "Microphone",
-            "isActive": true,
-            "samplerate": 48000,
-            "type": "input",
-          },
-        ]),
-      );
+      final deviceInfo = [
+        {
+          "id": "1",
+          "name": "System Internal",
+          "description": "System Internal",
+          "isActive": true,
+          "samplerate": 48000,
+          "type": "output",
+        },
+        {
+          "id": "2",
+          "name": "Microphone",
+          "description": "Microphone",
+          "isActive": true,
+          "samplerate": 48000,
+          "type": "input",
+        },
+      ];
+      _controller.add(DevicesInfoEvent(deviceInfo, raw: {"type": "devicesInfo", "devices": deviceInfo}));
       return true;
     } else {
       try {

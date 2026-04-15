@@ -11,6 +11,8 @@
 #include <map>
 #include <mutex>
 #include <vector>
+#include <string>
+#include <optional>
 
 #include "audio_recorder.h"
 
@@ -34,7 +36,6 @@ private:
     void HandleMethodCall(const flutter::MethodCall<flutter::EncodableValue>& method_call,
                          std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
     
-    void StartBackgroundEngine(int64_t callback_handle);
 
     // Callbacks from AudioRecorder
     void OnAudioData(const std::vector<float>& data);
@@ -50,7 +51,6 @@ private:
     HWND window_handle_;
     flutter::DartProject project_;
     std::unique_ptr<AudioRecorder> recorder_;
-    std::unique_ptr<flutter::FlutterEngine> background_engine_;
 
     // Event sinks for broadcasting
     std::map<flutter::BinaryMessenger*, std::unique_ptr<flutter::EventSink<flutter::EncodableValue>>> event_sinks_;

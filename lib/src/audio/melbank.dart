@@ -16,12 +16,12 @@ class MelbankConfig {
   final int maxFreq;
   final int minFreq;
   late double peakIsolation;
-  late CoeffType coeffType;
+  late MelbankFilterType filterType;
   late int samples;
   late List<int> maxFreqs;
 }
 
-enum CoeffType { mattmel }
+enum MelbankFilterType { htk, slaney, custom }
 
 // Creates a set of filterbanks to process FFT at different resolutions.
 // A constant amount are used to ensure consistent performance.
@@ -33,7 +33,7 @@ class Melbanks {
 
   final int samples;
   final double peakIsolation;
-  final CoeffType coeffType;
+  final MelbankFilterType filterType;
   final List<int> maxFreqs;
   final int minFreq;
 
@@ -53,7 +53,7 @@ class Melbanks {
     required this.audio,
     this.samples = 24,
     this.peakIsolation = 0.4,
-    this.coeffType = CoeffType.mattmel,
+    this.filterType = MelbankFilterType.custom,
     this.maxFreqs = MEL_MAX_FREQS,
     this.minFreq = MIN_FREQ,
   }) {
@@ -61,16 +61,20 @@ class Melbanks {
     melbankProcessors = [];
     melbankConfig = MelbankConfig(name: "", maxFreq: MAX_FREQ)
       ..peakIsolation = peakIsolation
-      ..coeffType = coeffType
-      ..samples = samples
+      ..filterType = filterType
+      ..samples = (filterType == MelbankFilterType.slaney)
+          ? 40 //Hard coded for slaney
+          : samples
       ..maxFreqs = maxFreqs;
 
     if (melbankCollection.isEmpty) {
       for (var (i, freq) in maxFreqs.indexed) {
         melbankConfig = MelbankConfig(name: "Melbank $i", maxFreq: freq)
           ..peakIsolation = peakIsolation
-          ..coeffType = coeffType
-          ..samples = samples
+          ..filterType = filterType
+          ..samples = (filterType == MelbankFilterType.slaney)
+              ? 40 //Hard coded for slaney
+              : samples
           ..maxFreqs = maxFreqs;
         final melbank = Melbank(audio: audio, config: melbankConfig);
         melbankProcessors.add(melbank);
@@ -80,8 +84,10 @@ class Melbanks {
       for (var melbank in melbankCollection) {
         melbankConfig = (melbank["melbank_config"] as MelbankConfig)
           ..peakIsolation = peakIsolation
-          ..coeffType = coeffType
-          ..samples = samples
+          ..filterType = filterType
+          ..samples = (filterType == MelbankFilterType.slaney)
+              ? 40 //Hard coded for slaney
+              : samples
           ..maxFreqs = maxFreqs;
         melbankProcessors.add(Melbank(audio: audio, config: melbankConfig));
       }
@@ -89,7 +95,7 @@ class Melbanks {
 
     ledfx.config.melbankConfig = melbankConfig;
     melCount = maxFreqs.length;
-    melLength = samples;
+    melLength = melbankConfig.samples;
 
     melbanks = List<Float32List>.generate(melCount, (_) => Float32List(melLength));
     melbanksFiltered = List<Float32List>.generate(melCount, (_) => Float32List(melLength));
@@ -143,19 +149,54 @@ class Melbank {
 
   Melbank({required this.audio, required this.config}) {
     powerFactor = tan(0.5 * pi * (config.peakIsolation + 1) / 2);
-    switch (config.coeffType) {
-      case CoeffType.mattmel:
-        final List<double> melbankMatt = NumListExtension.equallySpaced(
-          hzTOmatt(config.minFreq.toDouble()),
-          hzTOmatt(config.maxFreq.toDouble()),
+    switch (config.filterType) {
+      case MelbankFilterType.custom:
+        final List<double> melbankMels = NumListExtension.equallySpaced(
+          hzTOMel(config.minFreq.toDouble()),
+          hzTOMel(config.maxFreq.toDouble()),
           config.samples + 2,
         );
-        melbankFreqsFloat = Float32List.fromList(melbankMatt.map((mel) => mattTOhz(mel)).toList());
+        melbankFreqsFloat = Float32List.fromList(melbankMels.map((mel) => melTOhz(mel)).toList());
 
-        filterBank = Filterbank(config.samples, FFT_SIZE);
-        filterBank.setTriangleBandsF32(freqs: FloatVector.fromArray(melbankFreqsFloat), sampleRate: MIC_RATE);
-        melbankFreqsFloat = melbankFreqsFloat.sublist(1, melbankFreqsFloat.length - 1);
+      case MelbankFilterType.htk:
+        final List<double> melbankHTK = NumListExtension.equallySpaced(
+          hzTOHTK(config.minFreq.toDouble()),
+          hzTOHTK(config.maxFreq.toDouble()),
+          config.samples + 2,
+        );
+        melbankFreqsFloat = Float32List.fromList(melbankHTK.map((mel) => hTKTOhz(mel)).toList());
+
+      case MelbankFilterType.slaney:
+        // Slaney frequencies are linear-log spaced where 133Hz to 1000Hz is linear
+        // spaced and 1000Hz to 6000Hz is log spaced. It also produces a hardcoded
+        // 40 samples.
+        const double lowestFrequency = 133.33333333;
+        const double linearSpacing = 66.66666666;
+        const double logSpacing = 1.0711703;
+        const int linearFilters = 13;
+        const int logFilters = 27;
+
+        final List<double> linearSpacedFreqs = List.generate(linearFilters, (i) => lowestFrequency + i * linearSpacing);
+
+        final List<double> logSpacedFreqs = List.generate(
+          logFilters,
+          (i) => linearSpacedFreqs.last * pow(logSpacing, i + 1),
+        );
+
+        final List<double> centerFreqs = [...linearSpacedFreqs, ...logSpacedFreqs];
+
+        // To create 40 triangle bands, we need 42 frequencies (start, centers, end)
+        final double startFreq = lowestFrequency - linearSpacing;
+        final double endFreq = centerFreqs.last * logSpacing;
+
+        melbankFreqsFloat = Float32List.fromList([startFreq, ...centerFreqs, endFreq]);
+
+        config.samples = 40;
     }
+
+    filterBank = Filterbank(config.samples, FFT_SIZE);
+    filterBank.setTriangleBandsF32(freqs: FloatVector.fromArray(melbankFreqsFloat), sampleRate: MIC_RATE);
+    melbankFreqsFloat = melbankFreqsFloat.sublist(1, melbankFreqsFloat.length - 1);
 
     melbankFreqs = Int32List.fromList(melbankFreqsFloat.map((i) => i.toInt()).toList());
 
@@ -216,10 +257,46 @@ class Melbank {
   }
 }
 
-double hzTOmatt(double freq) {
+double hzTOMel(double freq) {
   return 3700.0 * (log(1 + (freq / 230.0)) / log(12));
 }
 
-double mattTOhz(double matt) {
-  return 230.0 * pow(12, (matt / 3700)).toDouble() - 230.0;
+double melTOhz(double mel) {
+  return 230.0 * pow(12, (mel / 3700)).toDouble() - 230.0;
+}
+
+double hzTOHTK(double hz) {
+  return 1127 * (log(1 + (hz / 700.0)));
+}
+
+double hTKTOhz(double mel) {
+  return 700.0 * (pow(10, (mel / 1127)) - 1);
+}
+
+double hzTOSlaney(double hz) {
+  if (hz < 0) return 0;
+  const double linSpace = 3.0 / 200.0;
+  const double splitHz = 1000.0;
+  const double splitMel = splitHz * linSpace; // 15
+  final double logSpace = 27.0 / log(6400.0 / 1000.0);
+
+  if (hz < splitHz) {
+    return hz * linSpace;
+  } else {
+    return splitMel + logSpace * log(hz / splitHz);
+  }
+}
+
+double slaneyTOhz(double mel) {
+  if (mel < 0) return 0;
+  const double linSpace = 200.0 / 3.0;
+  const double splitHz = 1000.0;
+  const double splitMel = splitHz / linSpace; // 15
+  final double logSpacing = pow(6400.0 / 1000.0, 1.0 / 27.0).toDouble();
+
+  if (mel < splitMel) {
+    return linSpace * mel;
+  } else {
+    return splitHz * pow(logSpacing, mel - splitMel);
+  }
 }

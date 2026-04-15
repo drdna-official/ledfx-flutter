@@ -101,27 +101,35 @@ class _EffectPageState extends State<EffectPage> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  RepaintBoundary(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<EffectType>(
-                          value: activeEffect?.type,
-                          isExpanded: false,
-                          items: EffectType.values.where((v) => v != EffectType.unknown).map((effect) {
-                            return DropdownMenuItem<EffectType>(value: effect, child: Text(effect.fullName));
-                          }).toList(),
-                          onChanged: (effect) {
-                            if (effect != null) {
-                              activeEffect = EffectConfig(name: effect.fullName, type: effect, mirror: true, blur: 3.0);
-                              updateEffectConfig(activeEffect);
-                            }
-                          },
+                  Center(
+                    child: RepaintBoundary(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<EffectType>(
+                            value: activeEffect?.type,
+                            isExpanded: false,
+                            items: EffectType.values.where((v) => v != EffectType.unknown).map((effect) {
+                              return DropdownMenuItem<EffectType>(value: effect, child: Text(effect.fullName));
+                            }).toList(),
+                            onChanged: (effect) {
+                              if (effect != null) {
+                                activeEffect = EffectConfig(
+                                  name: effect.fullName,
+                                  type: effect,
+                                  mirror: true,
+                                  blur: 3.0,
+                                );
+                                updateEffectConfig(activeEffect);
+                              }
+                            },
+                          ),
                         ),
                       ),
                     ),
