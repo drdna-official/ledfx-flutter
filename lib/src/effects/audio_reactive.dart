@@ -119,8 +119,8 @@ mixin AudioReactiveEffect on Effect {
   List<double> melbank({bool filtered = false, int? size}) {
     if (audio == null) throw Exception("AudioAnalysisSource not set");
     final melbank = (filtered)
-        ? audio!.melbanks.melbanksFiltered[selectedMelbank].sublist(melbankMinIdx, melbankMaxIdx)
-        : audio!.melbanks.melbanks[selectedMelbank].sublist(melbankMinIdx, melbankMaxIdx);
+        ? audio!.melbanks.melbanksFiltered[selectedMelbank].getRange(melbankMinIdx, melbankMaxIdx).toList()
+        : audio!.melbanks.melbanks[selectedMelbank].getRange(melbankMinIdx, melbankMaxIdx).toList();
 
     if (size != null && inputMelLength != size) {
       List<List<double>> linspaces = getMelbankInterpLinspaces(size);

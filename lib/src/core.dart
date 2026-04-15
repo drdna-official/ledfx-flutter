@@ -103,16 +103,14 @@ class LEDFx {
 
     // Initialize Devices
     devices.createFromConfig(config.devices);
+    await devices.initialiseDevices();
+
     // Initialize Virtuals
     virtuals.createFromConfig(config.virtuals, pauseAll);
+
     if (pauseAll) virtuals.pauseAll();
 
     updateCoreConfig();
-
-    // Do not wait for it.
-    devices.initialiseDevices().then((v) {
-      updateCoreConfig();
-    });
   }
 
   Future<void> stop([int exitCode = 0]) async {

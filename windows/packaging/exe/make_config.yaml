@@ -1,7 +1,0 @@
-app_id: ledfx-app
-publisher_name: cyber
-display_name: Ledfx
-create_desktop_icon: true
-install_dir_name: "{autopf}\\Ledfx"
-executable_name: ledfx
-setup_icon_file: windows\\runner\\resources\\app_icon.ico

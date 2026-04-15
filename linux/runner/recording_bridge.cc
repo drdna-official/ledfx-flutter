@@ -60,8 +60,7 @@ void RecordingBridge::handle_method_call(FlMethodChannel* channel, FlMethodCall*
     } else if (g_strcmp0(method, "stopRecording") == 0) {
         response = handle_stop_recording(self);
     } else if (g_strcmp0(method, "setupBackgroundExecution") == 0) {
-        response = FL_METHOD_RESPONSE(fl_method_success_response_new(fl_value_new_bool(TRUE)));
-
+        response = handle_setup_background_execution(self, args);
     } else if (g_strcmp0(method, "getRecordingState") == 0) {
         response = handle_get_recording_state(self);
     } else {
@@ -126,6 +125,19 @@ FlMethodResponse* RecordingBridge::handle_stop_recording(RecordingBridge* self) 
     return FL_METHOD_RESPONSE(fl_method_success_response_new(fl_value_new_bool(TRUE)));
 }
 
+FlMethodResponse* RecordingBridge::handle_setup_background_execution(RecordingBridge* self, FlValue* args) {
+    int64_t handle = 0;
+    std::cout << "[RecordingBridge] Entering setupBackgroundExecution" << std::endl;
+    if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+        FlValue* v_handle = fl_value_lookup_string(args, "handle");
+        if (v_handle && fl_value_get_type(v_handle) == FL_VALUE_TYPE_INT) {
+            handle = fl_value_get_int(v_handle);
+        }
+    }
+    self->StartBackgroundEngine(handle);
+    return FL_METHOD_RESPONSE(fl_method_success_response_new(fl_value_new_bool(TRUE)));
+}
+
 FlMethodResponse* RecordingBridge::handle_get_recording_state(RecordingBridge* self) {
     bool capturing = self->recorder_->IsCapturing();
     self->PostState(capturing ? "recording_started" : "recording_stopped");
@@ -139,6 +151,60 @@ FlMethodErrorResponse* RecordingBridge::handle_event_listen(FlEventChannel* chan
 
 FlMethodErrorResponse* RecordingBridge::handle_event_cancel(FlEventChannel* channel, FlValue* args, gpointer user_data) {
     return nullptr;
+}
+
+void RecordingBridge::StartBackgroundEngine(int64_t callback_handle) {
+    if (background_engine_) {
+        std::cout << "[RecordingBridge] Background engine already exists, skipping creation." << std::endl;
+        return;
+    }
+
+    // Save handle to ~/.config/ledfx/.state for persistence
+    if (callback_handle != 0) {
+        try {
+            const char *homedir;
+            if ((homedir = getenv("HOME")) == NULL) {
+                homedir = getpwuid(getuid())->pw_dir;
+            }
+            std::string config_dir = std::string(homedir) + "/.config/ledfx";
+            std::filesystem::create_directories(config_dir);
+            std::ofstream state_file(config_dir + "/.state");
+            if (state_file.is_open()) {
+                state_file << callback_handle;
+                state_file.close();
+                std::cout << "[RecordingBridge] Saved callback handle to .state file: " << callback_handle << std::endl;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "[RecordingBridge] Error saving state: " << e.what() << std::endl;
+        }
+    }
+
+    std::cout << "[RecordingBridge] Starting background engine with handle: " << callback_handle << std::endl;
+
+    g_autoptr(FlDartProject) background_project = fl_dart_project_new();
+    
+    // On Linux shell, we can't easily set the entrypoint via stable C API as in Windows/etc...
+    // instead we pass it as a flag via Arguments.
+    const char* args[] = {"--backgroundLinux", nullptr};
+    fl_dart_project_set_dart_entrypoint_arguments(background_project, const_cast<char**>(args));
+
+    background_view_ = fl_view_new(background_project);
+    background_engine_ = fl_view_get_engine(background_view_);
+    
+    // Using a view instead of headless engine to force execution pipeline to run
+    // To satisfy GTK constraints, we must anchor the view inside a top-level window.
+    // We create a hidden window to prevent the background isolate from displaying on-screen.
+    GtkWidget* hidden_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_container_add(GTK_CONTAINER(hidden_window), GTK_WIDGET(background_view_));
+    gtk_widget_realize(GTK_WIDGET(background_view_));
+
+    // Register plugins for background engine
+    fl_register_plugins(FL_PLUGIN_REGISTRY(background_engine_));
+
+    FlBinaryMessenger* messenger = fl_engine_get_binary_messenger(background_engine_);
+    RegisterChannels(messenger);
+    
+    std::cout << "[RecordingBridge] Background engine started successfully." << std::endl;
 }
 
 // Callbacks
@@ -194,9 +260,11 @@ gboolean RecordingBridge::SendAudioDataIdle(gpointer data) {
 
     std::lock_guard<std::mutex> lock(self->event_sinks_mutex_);
     for (auto& pair : self->active_sinks_) {
-        fl_event_channel_send(pair.second, map, nullptr, nullptr);
+        // Send audio data strictly to background engine if it exists
+        if (self->background_engine_ && pair.first == fl_engine_get_binary_messenger(self->background_engine_)) {
+            fl_event_channel_send(pair.second, map, nullptr, nullptr);
+        }
     }
-
 
     delete eventData;
     return FALSE; // Remove idle source
