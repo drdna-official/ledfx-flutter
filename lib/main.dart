@@ -15,13 +15,13 @@ import 'package:ledfx/ui/pages/adaptive_layout.dart';
 void backgroundAudioProcessing({RootIsolateToken? token}) => bg.backgroundAudioProcessing(token: token);
 
 void main(List<String> args) async {
-  print("[Dart Main] Args: $args");
+  debugPrint("[Dart Main] Args: $args");
   WidgetsFlutterBinding.ensureInitialized();
   AudioBridge.instance.registerNativeListener();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   if (Platform.isWindows || Platform.isLinux) {
-    print("[Dart Main] Spawning background isolate for ${Platform.operatingSystem}");
+    debugPrint("[Dart Main] Spawning background isolate for ${Platform.operatingSystem}");
     final rootToken = RootIsolateToken.instance!;
     Isolate.spawn((token) => backgroundAudioProcessing(token: token), rootToken);
 
