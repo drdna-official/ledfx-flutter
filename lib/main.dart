@@ -1,6 +1,4 @@
 import 'dart:io';
-import 'dart:isolate';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -12,30 +10,19 @@ import 'package:ledfx/worker.dart';
 import 'package:ledfx/ui/pages/adaptive_layout.dart';
 
 @pragma('vm:entry-point')
-void backgroundAudioProcessing({RootIsolateToken? token}) => bg.backgroundAudioProcessing(token: token);
+void backgroundAudioProcessing() => bg.backgroundAudioProcessing();
 
 void main(List<String> args) async {
-  debugPrint("[Dart Main] Args: $args");
+  print("[Dart Main] Args: $args");
+  if (args.contains('--backgroundLinux')) {
+    print("[Dart Main] Detected --backgroundLinux, starting worker...");
+    backgroundAudioProcessing();
+    return;
+  }
   WidgetsFlutterBinding.ensureInitialized();
-  AudioBridge.instance.registerNativeListener();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-  if (Platform.isWindows || Platform.isLinux) {
-    debugPrint("[Dart Main] Spawning background isolate for ${Platform.operatingSystem}");
-    final rootToken = RootIsolateToken.instance!;
-    Isolate.spawn((token) => backgroundAudioProcessing(token: token), rootToken);
-
-    // Forward events to background isolate
-    AudioBridge.instance.events.listen((event) {
-      final bgPort = IsolateNameServer.lookupPortByName("ledfx_bg_port");
-      if (bgPort != null) {
-        bgPort.send({"cmd": "bridge_event", "payload": event.raw});
-      }
-    });
-  } else {
-    // Android still uses native foreground service / background engine for now
-    await AudioBridge.instance.setupBackgroundExecution(backgroundAudioProcessing);
-  }
+  await AudioBridge.instance.setupBackgroundExecution(backgroundAudioProcessing);
 
   runApp(const MyApp());
 }
@@ -99,9 +86,11 @@ class _MyAppState extends State<MyApp> {
               builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Scaffold(
-                    appBar: (!Platform.isAndroid)
-                        ? null
-                        : AppBar(title: Text('LEDFx'), backgroundColor: Theme.of(context).colorScheme.primaryContainer),
+                    appBar: AppBar(
+                      title: Text('LEDFx'),
+                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    ),
+
                     body: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -111,9 +100,7 @@ class _MyAppState extends State<MyApp> {
                   );
                 } else if (snapshot.hasError) {
                   return Scaffold(
-                    appBar: (!Platform.isAndroid)
-                        ? null
-                        : AppBar(title: Text('LEDFx'), backgroundColor: Theme.of(context).colorScheme.primaryContainer),
+                    appBar: AppBar(title: Text('LEDFx')),
                     body: Center(
                       child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
                     ),
@@ -123,12 +110,10 @@ class _MyAppState extends State<MyApp> {
                     return AdaptiveNavigationLayout();
                   } else {
                     return Scaffold(
-                      appBar: (!Platform.isAndroid)
-                          ? null
-                          : AppBar(
-                              title: Text('LEDFx'),
-                              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                            ),
+                      appBar: AppBar(
+                        title: Text('LEDFx'),
+                        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                      ),
                       body: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,

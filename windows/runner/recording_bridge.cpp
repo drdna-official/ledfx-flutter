@@ -117,10 +117,19 @@ void RecordingBridge::HandleMethodCall(const flutter::MethodCall<flutter::Encoda
             break;
         }
         case Method::SetupBackgroundExecution: {
+            int64_t handle = 0;
+            const auto* args = std::get_if<std::map<flutter::EncodableValue, flutter::EncodableValue>>(method_call.arguments());
+            if (args) {
+                auto it_handle = args->find(flutter::EncodableValue("handle"));
+                if (it_handle != args->end()) {
+                    if (auto p_int = std::get_if<int64_t>(&it_handle->second)) handle = *p_int;
+                    else if (auto p_int32 = std::get_if<int32_t>(&it_handle->second)) handle = *p_int32;
+                }
+            }
+            StartBackgroundEngine(handle);
             result->Success(flutter::EncodableValue(true));
             break;
         }
-
         case Method::GetRecordingState: {
             bool capturing = recorder_->IsCapturing();
             result->Success(flutter::EncodableValue(capturing));
@@ -133,6 +142,28 @@ void RecordingBridge::HandleMethodCall(const flutter::MethodCall<flutter::Encoda
     }
 }
 
+void RecordingBridge::StartBackgroundEngine(int64_t callback_handle) {
+    if (background_engine_) return;
+
+    // Save handle to Registry for persistence (future-proofing)
+    if (callback_handle != 0) {
+        HKEY hKey;
+        if (RegCreateKeyExA(HKEY_CURRENT_USER, "Software\\DrDNA\\LEDFx\\Background", 0, NULL, 
+                            REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL) == ERROR_SUCCESS) {
+            RegSetValueExA(hKey, "callbackHandle", 0, REG_QWORD, 
+                           reinterpret_cast<const BYTE*>(&callback_handle), sizeof(callback_handle));
+            RegCloseKey(hKey);
+        }
+    }
+
+    flutter::DartProject background_project(L"data");
+    background_project.set_dart_entrypoint("backgroundAudioProcessing");
+
+    background_engine_ = std::make_unique<flutter::FlutterEngine>(background_project);
+    RegisterChannels(background_engine_->messenger());
+    RegisterPlugins(background_engine_.get());
+    background_engine_->Run();
+}
 
 void RecordingBridge::OnAudioData(const std::vector<float>& data) {
     PostAudioData(data);
@@ -198,9 +229,11 @@ std::optional<LRESULT> RecordingBridge::HandleMessage(UINT message, WPARAM wpara
 
                 std::lock_guard<std::mutex> lock(event_sinks_mutex_);
                 for (auto& pair : event_sinks_) {
-                    pair.second->Success(event);
+                    // Only send audio data to the background isolate
+                    if (background_engine_ && pair.first == background_engine_->messenger()) {
+                        pair.second->Success(event);
+                    }
                 }
-
             }
             {
                 std::lock_guard<std::mutex> lock(queue_mutex_);

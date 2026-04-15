@@ -92,24 +92,13 @@ class RecordingService : Service(), CoroutineScope by MainScope() {
             ACTION_STOP -> {
                 stopCapture()
                 isRecording = false
-                val fromNotification = intent.getBooleanExtra("from_notification", false) ?: false
-                val isUiAttached = RecordingBridge.isUiAttached()
-
-                if (fromNotification && isUiAttached) {
-                    RecordingBridge.sendState("recording_stopped")
-                    NotificationHelper.updateNotification(this, isRecording = false)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    stopForeground(Service.STOP_FOREGROUND_REMOVE)
                 } else {
-                    RecordingBridge.sendState("recording_stopped")
-                    if (!isUiAttached) {
-                        EngineHolder.stopEngine()
-                    }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        stopForeground(Service.STOP_FOREGROUND_REMOVE)
-                    } else {
-                        @Suppress("DEPRECATION") stopForeground(true)
-                    }
-                    stopSelf()
+                    @Suppress("DEPRECATION") stopForeground(true)
                 }
+                stopSelf()
+                RecordingBridge.sendState("recording_stopped")
             }
             ACTION_UPDATE_NOTIFICATION -> {
                 NotificationHelper.updateNotification(

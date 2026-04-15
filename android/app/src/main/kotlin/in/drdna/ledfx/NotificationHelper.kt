@@ -82,7 +82,6 @@ object NotificationHelper {
                 val stopIntent =
                         Intent(context, RecordingService::class.java).apply {
                                 action = RecordingService.ACTION_STOP
-                                putExtra("from_notification", true)
                         }
                 val stopPending =
                         PendingIntent.getService(

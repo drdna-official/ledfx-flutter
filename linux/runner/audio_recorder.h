@@ -42,8 +42,6 @@ public:
                int sampleRate, int channels, int blockSize);
     void Stop();
 
-    static void on_pw_process(void *userdata);
-
     bool IsCapturing() const { return is_capturing_; }
 
 private:
@@ -71,17 +69,7 @@ private:
     struct pw_stream* pw_stream_ = nullptr;
     struct spa_hook stream_listener_;
 
-    // Ring buffer state
-    std::mutex ring_mutex_;
-    std::vector<float> audio_ring_buffer_;
-    size_t ring_capacity_ = 0;
-    size_t ring_head_ = 0;
-    size_t ring_tail_ = 0;
-
-    void EnsureRingCapacity(size_t required_capacity);
-    void RingBufferPush(const float* samples, size_t count);
-    size_t RingBufferSize();
-    std::vector<float> RingBufferPop(size_t count);
+    static void on_pw_process(void *userdata);
 };
 
 #endif // RUNNER_AUDIO_RECORDER_H_

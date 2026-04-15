@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:ledfx/ui/pages/device_page.dart';
 import 'package:ledfx/ui/pages/home_page.dart';
@@ -150,9 +148,14 @@ class _AdaptiveNavigationLayoutState extends State<AdaptiveNavigationLayout> {
         : body;
 
     return Scaffold(
-      appBar: (!Platform.isAndroid)
-          ? null
-          : AppBar(title: Text('LEDFx'), backgroundColor: Theme.of(context).colorScheme.primaryContainer),
+      appBar: AppBar(
+        title: const Text('LEDFx'),
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        // actions: [
+        //   IconButton(onPressed: () => ledfxWorker.requestState(), icon: Icon(Icons.refresh_rounded)),
+        //   SizedBox(width: 16),
+        // ],
+      ),
       // drawer: currentLayout == AdaptiveLayout.compact ? const AppNavigationDrawer() : null,
       body: Stack(
         children: [
@@ -163,7 +166,7 @@ class _AdaptiveNavigationLayoutState extends State<AdaptiveNavigationLayout> {
             right: 0,
             child: IgnorePointer(
               child: SizedBox(
-                height: 60,
+                height: 50,
                 child: RepaintBoundary(
                   child: ValueListenableBuilder(
                     valueListenable: ledfxWorker.getDeviceRgbNotifier("dummyViz"),

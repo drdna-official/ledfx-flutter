@@ -3,7 +3,7 @@
 #include <spa/param/audio/format-utils.h>
 
 const struct pw_stream_events stream_events = {
-    .version = PW_VERSION_STREAM_EVENTS,
+    PW_VERSION_STREAM_EVENTS,
     .process = AudioRecorder::on_pw_process,
 };
 
@@ -23,17 +23,9 @@ void AudioRecorder::on_pw_process(void *userdata) {
         float *data = static_cast<float*>(buf->datas[0].data);
         uint32_t n_samples = buf->datas[0].chunk->size / sizeof(float);
         
-        if (n_samples > 0) {
-            self->RingBufferPush(data, n_samples * self->channels_);
-            size_t frames_needed = (self->target_blocksize_ > 0) ? self->target_blocksize_ : n_samples;
-            size_t samples_needed = frames_needed * self->channels_;
-            
-            while (self->RingBufferSize() >= samples_needed && self->is_capturing_) {
-                std::vector<float> block = self->RingBufferPop(samples_needed);
-                if (self->data_callback_) {
-                    self->data_callback_(block);
-                }
-            }
+        if (self->data_callback_ && n_samples > 0) {
+            std::vector<float> data_vec(data, data + n_samples);
+            self->data_callback_(data_vec);
         }
     }
 
@@ -179,20 +171,14 @@ void AudioRecorder::AudioCaptureThread() {
 
     while (is_capturing_) {
         if (use_pulseaudio_fallback_ && pa_stream_) {
-            int pa_error = 0;
-            if (pa_simple_read(pa_stream_, buffer.data(), buffer.size() * sizeof(float), &pa_error) < 0) {
-                std::cout << "[AudioRecorder] pa_simple_read() failed: " << pa_strerror(pa_error) << std::endl;
+            int error;
+            if (pa_simple_read(pa_stream_, buffer.data(), buffer.size() * sizeof(float), &error) < 0) {
+                std::cout << "[AudioRecorder] pa_simple_read() failed: " << pa_strerror(error) << std::endl;
                 if (error_callback_) error_callback_("PulseAudio read failed");
                 break;
             }
-            RingBufferPush(buffer.data(), buffer.size());
-            size_t frames_needed = (target_blocksize_ > 0) ? target_blocksize_ : samples_per_block;
-            size_t samples_needed = frames_needed * channels_;
-            while (RingBufferSize() >= samples_needed && is_capturing_) {
-                std::vector<float> block = RingBufferPop(samples_needed);
-                if (data_callback_) {
-                    data_callback_(block);
-                }
+            if (data_callback_) {
+                data_callback_(buffer);
             }
         } else {
             pw_thread_loop_lock(pw_loop_);
@@ -201,28 +187,24 @@ void AudioRecorder::AudioCaptureThread() {
             uint8_t pb[1024];
             struct spa_pod_builder b = SPA_POD_BUILDER_INIT(pb, sizeof(pb));
 
-            struct pw_properties *props = pw_properties_new(
-                PW_KEY_MEDIA_TYPE, "Audio",
-                PW_KEY_MEDIA_CATEGORY, "Capture",
-                PW_KEY_MEDIA_ROLE, "Music",
-                nullptr);
-
             uint32_t target_node = PW_ID_ANY;
-            if (current_device_id_ == "@DEFAULT_MONITOR@") {
-                pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK, "true");
-            } else if (!current_device_id_.empty() && 
-                       current_device_id_ != "default" && 
-                       current_device_id_ != "@DEFAULT_SOURCE@") {
-                pw_properties_set(props, PW_KEY_TARGET_OBJECT, current_device_id_.c_str());
+            if (current_device_id_ != "default" && current_device_id_ != "@DEFAULT_MONITOR@" && !current_device_id_.empty()) {
+                // If it's a specific id string, we might try to map it, but for simplicity we rely on PW_ID_ANY 
+                // and user default selection unless it's numeric in a full implementation.
             }
             
-            pw_stream_ = pw_stream_new(pw_core_, "ledfx_capture", props);
+            pw_stream_ = pw_stream_new(pw_core_, "ledfx_capture",
+                pw_properties_new(
+                    PW_KEY_MEDIA_TYPE, "Audio",
+                    PW_KEY_MEDIA_CATEGORY, "Capture",
+                    PW_KEY_MEDIA_ROLE, "Music",
+                    nullptr));
 
             if (pw_stream_ != nullptr) {
                 spa_zero(stream_listener_);
                 pw_stream_add_listener(pw_stream_, &stream_listener_, &stream_events, this);
                 
-                struct spa_audio_info_raw info = {};
+                struct spa_audio_info_raw info = {0};
                 info.format = SPA_AUDIO_FORMAT_F32;
                 info.rate = sample_rate_;
                 info.channels = channels_;
@@ -255,85 +237,4 @@ void AudioRecorder::AudioCaptureThread() {
     }
     
     std::cout << "[AudioRecorder] Audio capture thread stopped." << std::endl;
-}
-
-void AudioRecorder::EnsureRingCapacity(size_t required_capacity) {
-    std::lock_guard<std::mutex> lock(ring_mutex_);
-    if (ring_capacity_ >= required_capacity) return;
-    
-    size_t new_capacity = required_capacity * 2;
-    std::vector<float> new_buf(new_capacity);
-    size_t current_size = 0;
-    
-    if (ring_capacity_ > 0) {
-        if (ring_head_ >= ring_tail_) {
-            current_size = ring_head_ - ring_tail_;
-            std::copy(audio_ring_buffer_.begin() + ring_tail_,
-                      audio_ring_buffer_.begin() + ring_head_, new_buf.begin());
-        } else {
-            current_size = ring_capacity_ - ring_tail_ + ring_head_;
-            size_t first_part = ring_capacity_ - ring_tail_;
-            std::copy(audio_ring_buffer_.begin() + ring_tail_,
-                      audio_ring_buffer_.end(), new_buf.begin());
-            std::copy(audio_ring_buffer_.begin(),
-                      audio_ring_buffer_.begin() + ring_head_,
-                      new_buf.begin() + first_part);
-        }
-    }
-    audio_ring_buffer_.swap(new_buf);
-    ring_capacity_ = new_capacity;
-    ring_tail_ = 0;
-    ring_head_ = current_size;
-}
-
-void AudioRecorder::RingBufferPush(const float* samples, size_t count) {
-    std::lock_guard<std::mutex> lock(ring_mutex_);
-    if (ring_capacity_ == 0) {
-        size_t desired = std::max<size_t>(count * 8, count * 2);
-        audio_ring_buffer_.assign(desired, 0.0f);
-        ring_capacity_ = desired;
-        ring_head_ = 0;
-        ring_tail_ = 0;
-    }
-    size_t current_size = (ring_head_ >= ring_tail_)
-                              ? (ring_head_ - ring_tail_)
-                              : (ring_capacity_ - ring_tail_ + ring_head_);
-    if (current_size + count >= ring_capacity_) {
-        EnsureRingCapacity(current_size + count + 1);
-    }
-    size_t first_write = std::min(count, ring_capacity_ - ring_head_);
-    std::copy(samples, samples + first_write,
-              audio_ring_buffer_.begin() + ring_head_);
-    ring_head_ = (ring_head_ + first_write) % ring_capacity_;
-    size_t remaining = count - first_write;
-    if (remaining > 0) {
-        std::copy(samples + first_write, samples + first_write + remaining,
-                  audio_ring_buffer_.begin() + ring_head_);
-        ring_head_ = (ring_head_ + remaining) % ring_capacity_;
-    }
-}
-
-size_t AudioRecorder::RingBufferSize() {
-    std::lock_guard<std::mutex> lock(ring_mutex_);
-    if (ring_capacity_ == 0) return 0;
-    if (ring_head_ >= ring_tail_) return ring_head_ - ring_tail_;
-    return ring_capacity_ - ring_tail_ + ring_head_;
-}
-
-std::vector<float> AudioRecorder::RingBufferPop(size_t count) {
-    std::lock_guard<std::mutex> lock(ring_mutex_);
-    std::vector<float> out(count);
-    if (count == 0 || ring_capacity_ == 0) return out;
-    size_t first_read = std::min(count, ring_capacity_ - ring_tail_);
-    std::copy(audio_ring_buffer_.begin() + ring_tail_,
-              audio_ring_buffer_.begin() + ring_tail_ + first_read, out.begin());
-    ring_tail_ = (ring_tail_ + first_read) % ring_capacity_;
-    size_t remaining = count - first_read;
-    if (remaining > 0) {
-        std::copy(audio_ring_buffer_.begin() + ring_tail_,
-                  audio_ring_buffer_.begin() + ring_tail_ + remaining,
-                  out.begin() + first_read);
-        ring_tail_ = (ring_tail_ + remaining) % ring_capacity_;
-    }
-    return out;
 }

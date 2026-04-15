@@ -25,14 +25,7 @@ add_definitions(-DAPPLICATION_ID="${APPLICATION_ID}")
 target_link_libraries(${BINARY_NAME} PRIVATE flutter)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GTK)
 
-pkg_check_modules(LINUX_DEPS REQUIRED IMPORTED_TARGET libpipewire-0.3 libpulse libpulse-simple)
-
-# Support both legacy and ayatana appindicator
-pkg_check_modules(APPINDICATOR QUIET IMPORTED_TARGET appindicator3-0.1)
-if(NOT APPINDICATOR_FOUND)
-  pkg_check_modules(APPINDICATOR REQUIRED IMPORTED_TARGET ayatana-appindicator3-0.1)
-endif()
-
-target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::LINUX_DEPS PkgConfig::APPINDICATOR)
+pkg_check_modules(LINUX_DEPS REQUIRED IMPORTED_TARGET libpipewire-0.3 libpulse libpulse-simple appindicator3-0.1)
+target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::LINUX_DEPS)
 
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
