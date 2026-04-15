@@ -127,29 +127,6 @@ class WLED {
     return null;
   }
 
-  Future<Map<String, dynamic>?> _requestPOST(String endpoint) async {
-    try {
-      final response = await http.post(Uri.parse("http://$ipAddr/$endpoint"));
-      if (response.statusCode == 200) {
-        // The request was successful (status code 200).
-        // Parse the JSON data from the response body.
-        final Map<String, dynamic> data = json.decode(response.body);
-        debugPrint('Data received: $data');
-        // You can now use the 'data' map to update your UI or process the information.
-        return data;
-      }
-    } catch (e) {
-      debugPrint("error ${e.toString()}");
-    }
-
-    return null;
-  }
-
-  Future<void> getSyncSetting() async {
-    final syncResp = await _requestGET("json/cfg");
-    // Set and parse SyncSetting from json response
-  }
-
   Future<WLEDConfig?> getConfig() async {
     try {
       final Map<String, dynamic>? configResp = await _requestGET("json/info");

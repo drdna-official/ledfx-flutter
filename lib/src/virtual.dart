@@ -283,7 +283,7 @@ class Virtual {
           }
         } else if (config.segmentMapping == "copy") {
           // copy - each segment has same pixels SCALED to length
-          for (final (vStart, vStop, step, devStart, devEnd) in segments) {
+          for (final (_, _, step, devStart, devEnd) in segments) {
             final targetPhysicalLen = devEnd - devStart + 1;
             final targetEffectLen = _getEffectivePixelCount(targetPhysicalLen);
             var seg = interpolatePixels(pixels!, targetEffectLen, step);
