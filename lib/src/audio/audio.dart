@@ -68,7 +68,6 @@ abstract class AudioInputSource {
   Resampler? resampler;
   FixedSizeBuffer? delayQueue;
 
-  final List<double> _audioEventBuffer = [];
   void activate() {
     if (_streamSub != null) return;
     // setup audio bridge event stream
@@ -93,22 +92,12 @@ abstract class AudioInputSource {
           break;
 
         case AudioEvent(:final Float32List data):
-          // Convert and accumulate into frames
-          // final frames = processAudioByteChunk(data);
-          // for (final frame in frames) {
-          //   audioSampleCallback(frame);
-          // }
           audioSampleCallback(data);
           break;
         case DevicesInfoEvent():
-          // case DevicesInfoEvent(:final audioDevices):
-          //   this.audioDevices = audioDevices;
-          //   notifySubscribers();
           break;
       }
     });
-    // get devices list
-    // _audio!.getDevices();
 
     // Setup a pre-emphasis filter to balance the input volume of lows to highs
     switch (preFilterType) {

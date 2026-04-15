@@ -14,46 +14,6 @@ const double kExpandedBreakpoint = 840.0;
 
 enum AdaptiveLayout { compact, medium, expanded }
 
-// class AdaptiveNavigationLayout extends StatelessWidget {
-//   const AdaptiveNavigationLayout({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return LayoutBuilder(
-//       builder: (context, constraints) {
-//         final double width = constraints.maxWidth;
-
-//         if (width < kMediumBreakpoint) {
-//           // 1. COMPACT (Mobile) View: Uses Drawer and shows the hamburger icon
-//           return CompactLayout();
-//         } else if (width < kExpandedBreakpoint) {
-//           // 2. MEDIUM (Tablet) View: Uses Navigation Rail, NO Drawer needed.
-//           return Scaffold(
-//             appBar: AppBar(
-//               title: const Text('Medium View (Nav Rail)'),
-//               // Since 'drawer' is null, NO hamburger icon is shown
-//             ),
-//             // Explicitly set drawer to null
-//             drawer: null,
-//             body: MediumLayout(),
-//           );
-//         } else {
-//           // 3. EXPANDED (Desktop) View: Uses Permanent Sidebar, NO Drawer needed.
-//           return Scaffold(
-//             appBar: AppBar(
-//               title: const Text('Expanded View (Sidebar)'),
-//               // Since 'drawer' is null, NO hamburger icon is shown
-//             ),
-//             // Explicitly set drawer to null
-//             drawer: null,
-//             body: ExpandedLayout(),
-//           );
-//         }
-//       },
-//     );
-//   }
-// }
-
 class AdaptiveNavigationLayout extends StatefulWidget {
   const AdaptiveNavigationLayout({super.key});
 
