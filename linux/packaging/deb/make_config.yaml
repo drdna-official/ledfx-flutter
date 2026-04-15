@@ -1,0 +1,34 @@
+display_name: LEDFX
+package_name: ledfx
+maintainer:
+  name: Cyber
+  email: [EMAIL_ADDRESS]
+priority: optional
+section: sound
+installed_size: 52231
+essential: false
+icon: linux/runner/assets/app_icon.png
+depends: 
+  - libpipewire-0.3-0
+  - libpulse0
+  - libpulse-simple0
+  - libayatana-appindicator3-1 | libappindicator3-1
+
+postinstall_scripts:
+  - echo "Installed LEDFx"
+postuninstall_scripts:
+  - echo "LEDFx has been removed"
+
+keywords:
+  - LEDFx
+  - Audio
+  - Visualizer
+  - WLED
+
+generic_name: Audio Visualizer
+
+categories:
+  - AudioVideo
+  - Media
+
+startup_notify: true

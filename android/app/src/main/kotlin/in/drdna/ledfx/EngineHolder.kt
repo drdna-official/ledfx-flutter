@@ -40,4 +40,10 @@ object EngineHolder {
             }
         }
     }
+
+    fun stopEngine() {
+        RecordingBridge.removeSink(true)
+        flutterEngine?.destroy()
+        flutterEngine = null
+    }
 }

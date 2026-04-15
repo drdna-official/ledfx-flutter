@@ -152,7 +152,7 @@ void _udpSenderIsolate(SendPort initPort) async {
   }
 }
 
-abstract class UDPDevice extends NetworkedDevice implements AsyncInitDevice {
+abstract class UDPDevice extends NetworkedDevice {
   UDPDevice({
     required super.ipAddr,
     super.refreshRate,

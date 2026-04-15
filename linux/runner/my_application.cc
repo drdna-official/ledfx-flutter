@@ -8,9 +8,14 @@
 #include "flutter/generated_plugin_registrant.h"
 #include "recording_bridge.h"
 
-#ifdef __linux__
+#if __has_include(<libayatana-appindicator/app-indicator.h>)
+#include <libayatana-appindicator/app-indicator.h>
+#else
 #include <libappindicator/app-indicator.h>
 #endif
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -32,6 +37,38 @@ static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer dat
     return TRUE; // Stop the event from propagating
 }
 
+// Helper to find icon path relative to executable
+static gchar* get_icon_path() {
+    g_autofree gchar* exe_path = g_file_read_link("/proc/self/exe", nullptr);
+    if (!exe_path) return nullptr;
+    g_autoptr(GFile) exe_file = g_file_new_for_path(exe_path);
+    g_autoptr(GFile) exe_dir = g_file_get_parent(exe_file);
+    
+    // 1. Check in bundle data (Production/Installed)
+    g_autoptr(GFile) bundle_icon = g_file_get_child(exe_dir, "data/app_icon.png");
+    if (g_file_query_exists(bundle_icon, nullptr)) {
+        return g_file_get_path(bundle_icon);
+    }
+    
+    // 2. Check relative to build directory (Development)
+    // When running 'flutter run', the binary is in build/linux/x64/debug/bundle/
+    // or build/linux/x64/debug/intermediates_do_not_run/
+    g_autoptr(GFile) project_root = g_file_get_parent(g_file_get_parent(g_file_get_parent(g_file_get_parent(exe_dir))));
+    if (project_root) {
+        g_autoptr(GFile) dev_icon = g_file_get_child(project_root, "linux/runner/assets/app_icon.png");
+        if (g_file_query_exists(dev_icon, nullptr)) {
+            return g_file_get_path(dev_icon);
+        }
+    }
+    
+    // 3. Fallback to current working directory
+    if (g_file_test("linux/runner/assets/app_icon.png", G_FILE_TEST_EXISTS)) {
+        return g_strdup("linux/runner/assets/app_icon.png");
+    }
+
+    return nullptr;
+}
+
 static void on_tray_restore(GtkMenuItem *item, gpointer data) {
     MyApplication* self = MY_APPLICATION(data);
     GList* windows = gtk_application_get_windows(GTK_APPLICATION(self));
@@ -47,12 +84,12 @@ static void on_tray_quit(GtkMenuItem *item, gpointer data) {
 }
 
 static void setup_tray_icon(MyApplication* self, GtkWindow* window) {
+    g_autofree gchar* icon_path = get_icon_path();
+    
     self->indicator = app_indicator_new("drdna-ledfx",
-                                        "ledfx-tray", // Make sure an icon named ledfx-tray exists, or use standard
+                                        icon_path ? icon_path : "multimedia-audio-player",
                                         APP_INDICATOR_CATEGORY_APPLICATION_STATUS);
     
-    // Setting up the fallback icon as it may not find custom without install
-    app_indicator_set_icon_theme_path(self->indicator, "/usr/share/icons");
     app_indicator_set_status(self->indicator, APP_INDICATOR_STATUS_ACTIVE);
     app_indicator_set_title(self->indicator, "LEDFx Background Engine");
 
@@ -205,6 +242,8 @@ static void my_application_class_init(MyApplicationClass* klass) {
 }
 
 static void my_application_init(MyApplication* self) {}
+
+#pragma GCC diagnostic pop
 
 MyApplication* my_application_new() {
   // Set the program name to the application ID, which helps various systems

@@ -15,12 +15,15 @@ import 'package:ledfx/utils/utils.dart';
 
 import 'mel_utils.dart';
 
+enum PreFilterType { custom, slaney }
+
 abstract class AudioInputSource {
   final LEDFx ledfx;
   final int sampleRate;
   final int fftSize;
   final double minVolume;
   final Duration delay;
+  final PreFilterType preFilterType;
 
   AudioBridge? _audio;
 
@@ -30,6 +33,7 @@ abstract class AudioInputSource {
     this.fftSize = FFT_SIZE,
     this.minVolume = 0.2,
     this.delay = Duration.zero,
+    this.preFilterType = PreFilterType.custom,
   });
 
   // List<AudioDevice>? audioDevices;
@@ -59,7 +63,7 @@ abstract class AudioInputSource {
     return filtered ? _volumeFilter.value! : _volume;
   }
 
-  DigitalFilter? preEmphasis;
+  BiquadDigitalFilter? preEmphasis;
   PhaseVocoder? phaseVocoder;
   Resampler? resampler;
   FixedSizeBuffer? delayQueue;
@@ -107,11 +111,22 @@ abstract class AudioInputSource {
     // _audio!.getDevices();
 
     // Setup a pre-emphasis filter to balance the input volume of lows to highs
-    preEmphasis = DigitalFilter(3);
-    final selectedCoeff = ledfx.config.melbankConfig?.coeffType ?? CoeffType.mattmel;
-    switch (selectedCoeff) {
-      case CoeffType.mattmel:
-        preEmphasis!.setBiquad(0.8268, -1.6536, 0.8268, -1.6536, 0.6536);
+    switch (preFilterType) {
+      case PreFilterType.custom:
+        preEmphasis = BiquadDigitalFilter(
+          type: BiquadFilterType.highpassCustom,
+          centerFreq: 1283,
+          sampleRate: MIC_RATE.toDouble(),
+          q: 0.707,
+        );
+      case PreFilterType.slaney:
+        preEmphasis = BiquadDigitalFilter(
+          type: BiquadFilterType.highpass,
+          centerFreq: 750,
+          sampleRate: MIC_RATE.toDouble(),
+          q: 0.5,
+        );
+      // preEmphasis!.setBiquad(0.8268, -1.6536, 0.8268, -1.6536, 0.6536);
       // default:
       //   preEmphasis.setBiquad(0, 0.85870, -1.71740, 0.85870, -1.71605, 0.71874);
     }
@@ -177,30 +192,6 @@ abstract class AudioInputSource {
   //     await _audio!.stop();
   //   }
   // }
-
-  /// Convert PCM16 bytes → normalized float samples
-  Float32List pcm16ToFloat32(Uint8List bytes) {
-    final bd = ByteData.sublistView(bytes);
-    final samples = Float32List(bytes.lengthInBytes ~/ 2);
-    for (int i = 0; i < samples.length; i++) {
-      samples[i] = bd.getInt16(i * 2, Endian.little) / 32768.0;
-    }
-    return samples;
-  }
-
-  /// Process new PCM chunk into fixed frames
-  List<Float32List> processAudioByteChunk(Uint8List bytes) {
-    final samples = pcm16ToFloat32(bytes);
-    _audioEventBuffer.addAll(samples);
-    final int frameSize = MIC_RATE ~/ sampleRate;
-
-    final frames = <Float32List>[];
-    while (_audioEventBuffer.length >= frameSize) {
-      frames.add(Float32List.fromList(_audioEventBuffer.sublist(0, frameSize)));
-      _audioEventBuffer.removeRange(0, frameSize);
-    }
-    return frames;
-  }
 
   int inLen = 0;
   int outLen = 0;
@@ -365,7 +356,7 @@ class AudioAnalysisSource extends AudioInputSource {
     // subscribe(setPitch);
     // subscribe(setOnset);
     // subscribe(barOscillator);
-    // subscribe(volumeBeatNow);
+    subscribe(volumeBeatNow);
     // subscribe(freqPower);
 
     _subscriberThreshould = _callbacks.length;
@@ -374,7 +365,6 @@ class AudioAnalysisSource extends AudioInputSource {
   @override
   void deactivate() {
     super.deactivate();
-    // Clean Pointers
     melbanks.dispose();
   }
 
